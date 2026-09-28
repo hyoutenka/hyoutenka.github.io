@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111418">
+  <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
+  <title>web effecter — Guitar signal lab</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><strong>web effecter</strong><small>GUITAR SIGNAL LAB</small></div></div>
+    <div class="top-actions"><span id="engine-state" class="engine-state">ENGINE OFF</span><button id="power" class="power" type="button"><span aria-hidden="true">⏻</span> 오디오 시작</button></div>
+  </header>
+
+  <main class="workspace">
+    <section class="toolbar" aria-label="프리셋">
+      <div><p class="eyebrow">PEDALBOARD / 01</p><h1>Signal chain</h1><p class="muted">슬롯을 눌러 이펙트를 선택하고 왼쪽부터 순서대로 소리를 만드세요.</p></div>
+      <label class="preset-label">프리셋 <select id="preset"><option value="custom">사용자 설정</option><option value="clean">Clean studio</option><option value="ambient">Ambient lead</option><option value="violin">Electric violin</option></select></label>
+    </section>
+
+    <section class="signal-panel" aria-label="신호 경로">
+      <div class="signal-top"><span>INPUT → EFFECTS → OUTPUT</span><span id="signal-status">연결 대기 중</span></div>
+      <div class="chain" id="chain" aria-label="이펙트 체인"></div>
+      <div class="chain-hint">노드의 이펙트를 바꾸거나 우측 패널에서 값을 조정할 수 있습니다. BYPASS는 해당 노드만 건너뜁니다.</div>
+    </section>
+
+    <div class="lower-grid">
+      <section class="card io-card" aria-labelledby="io-title">
+        <div class="card-head"><div><p class="eyebrow">AUDIO ROUTING</p><h2 id="io-title">입출력</h2></div><span class="pill">LOCAL AUDIO</span></div>
+        <div class="source-tabs" role="group" aria-label="입력 방식"><button id="tab-device" type="button" class="active">오디오 인터페이스</button><button id="tab-file" type="button">녹음 파일</button></div>
+        <div id="device-panel" class="source-panel">
+          <label for="input-device">입력 장치</label><div class="inline"><select id="input-device"><option value="">권한을 허용하면 장치가 표시됩니다</option></select><button id="request-input" class="subtle" type="button">연결</button></div>
+          <p class="help">기타가 연결된 인터페이스 입력을 선택하세요. 스피커 피드백을 피하려면 헤드폰을 사용하세요.</p>
+        </div>
+        <div id="file-panel" class="source-panel" hidden>
+          <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
+          <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
+        </div>
+        <div class="divider"></div>
+        <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
+        <div class="level-row"><label for="master-volume">마스터 <output id="master-value">75%</output></label><input id="master-volume" type="range" min="0" max="100" value="75"></div>
+        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div></div></div>
+      </section>
+
+      <section class="card editor" aria-labelledby="editor-title">
+        <div class="card-head"><div><p class="eyebrow" id="editor-index">SLOT 01</p><h2 id="editor-title">이펙트 선택</h2></div><button id="bypass" class="bypass" type="button" hidden>BYPASS</button></div>
+        <div id="effect-picker"><p class="help">원하는 이펙트를 누르면 이 슬롯에 삽입됩니다.</p><div class="effect-grid" id="effect-grid"></div></div>
+        <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="ir-panel" hidden><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 합성 바이올린 바디 응답</p></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
+      </section>
+    </div>
+    <div class="notice" role="status" id="notice">오디오 시작을 누르면 브라우저의 오디오 엔진이 켜집니다.</div>
+    <footer>헤드폰 권장 · 오디오 처리는 이 기기에서만 실행됩니다. 바이올린 프리셋은 피치 추적 기반 실험 기능으로 연주법까지 재현하지는 않습니다.</footer>
+  </main>
+  <audio id="sink-audio" autoplay playsinline hidden></audio>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
