@@ -3,6 +3,7 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     super();
     this.ring = new Float32Array(2048);
     this.samples = new Float32Array(1024);
+    this.correlations = new Float32Array(256);
     this.pos = 0;
     this.counter = 0;
     this.phase = 0;
@@ -28,7 +29,7 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     const rate = sampleRate / stride;
     const minLag = Math.floor(rate / 1100);
     const maxLag = Math.min(Math.floor(rate / 72), Math.floor(count / 2));
-    let best = 0, bestLag = 0;
+    let best = 0;
     for (let lag = minLag; lag <= maxLag; lag++) {
       let dot = 0, e1 = 0, e2 = 0;
       for (let i = 0; i < count - lag; i += 2) {
@@ -36,12 +37,20 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
         dot += a * b; e1 += a * a; e2 += b * b;
       }
       const score = dot / (Math.sqrt(e1 * e2) + 1e-10);
-      // Prefer the first strong peak to reduce octave errors.
-      if (score > 0.86 && score > best - 0.025) { best = score; bestLag = lag; break; }
-      if (score > best) { best = score; bestLag = lag; }
+      this.correlations[lag] = score;
+      if (score > best) best = score;
     }
-    if (best > 0.69 && bestLag) {
-      const next = rate / bestLag;
+    // Choose a real peak, not the rising shoulder before it; prefer the
+    // earliest strong peak to reduce octave-down errors from harmonics.
+    let peak = 0;
+    if (best > 0.72) for (let lag = minLag + 1; lag < maxLag; lag++) {
+      const c = this.correlations[lag];
+      if (c >= this.correlations[lag - 1] && c > this.correlations[lag + 1] && c >= best - 0.10 && c > 0.72) { peak = lag; break; }
+    }
+    if (peak) {
+      const a = this.correlations[peak - 1], b = this.correlations[peak], c = this.correlations[peak + 1];
+      const offset = Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / (a - 2 * b + c || 1)));
+      const next = rate / (peak + offset);
       if (next >= 72 && next <= 1100) {
         this.freq = next;
         this.port.postMessage({ frequency: Math.round(next), confidence: +best.toFixed(2) });
