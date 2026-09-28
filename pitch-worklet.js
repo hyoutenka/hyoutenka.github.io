@@ -9,9 +9,18 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     this.phase = 0;
     this.freq = 220;
     this.env = 0;
-    this.smooth = 0;
+    this.smooth = 220;
+    this.hasPitch = false;
     this.time = 0;
     this.level = 0;
+    this.attack = 145;
+    this.release = 680;
+    this.vibrato = 7;
+    this.port.onmessage = ({ data }) => {
+      this.attack = Math.max(20, Math.min(500, +data.attack || 145));
+      this.release = Math.max(80, Math.min(1800, +data.release || 680));
+      this.vibrato = Math.max(0, Math.min(30, +data.vibrato || 0));
+    };
   }
   detect() {
     // Downsample the last ~93 ms; normalized autocorrelation rejects weak/noisy notes.
@@ -25,7 +34,7 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     }
     const rms = Math.sqrt(energy / count);
     this.level = rms;
-    if (rms < 0.008) return;
+    if (rms < 0.008) { if (this.env < 0.01) this.hasPitch = false; return; }
     const rate = sampleRate / stride;
     const minLag = Math.floor(rate / 1100);
     const maxLag = Math.min(Math.floor(rate / 72), Math.floor(count / 2));
@@ -53,6 +62,7 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
       const next = rate / (peak + offset);
       if (next >= 72 && next <= 1100) {
         this.freq = next;
+        if (!this.hasPitch) { this.smooth = next; this.hasPitch = true; }
         this.port.postMessage({ frequency: Math.round(next), confidence: +best.toFixed(2) });
       }
     }
@@ -62,16 +72,18 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     const output = outputs[0];
     const mono = input && input[0];
     if (!output || !output[0]) return true;
+    const attackStep = 1 - Math.exp(-1 / (this.attack * .001 * sampleRate));
+    const releaseStep = 1 - Math.exp(-1 / (this.release * .001 * sampleRate));
     for (let i = 0; i < output[0].length; i++) {
       const sample = mono ? mono[i] || 0 : 0;
       this.ring[this.pos] = sample;
       this.pos = (this.pos + 1) % this.ring.length;
       if (++this.counter >= 1024) { this.counter = 0; this.detect(); }
-      const target = Math.min(0.65, Math.max(0, this.level * 4.5));
-      this.env += (target - this.env) * (target > this.env ? 0.0017 : 0.00022);
-      this.smooth += (this.freq - this.smooth) * 0.0008;
+      const target = this.level > 0.008 ? Math.min(0.7, Math.sqrt(this.level * 2) * 0.65) : 0;
+      this.env += (target - this.env) * (target > this.env ? attackStep : releaseStep);
+      this.smooth += (this.freq - this.smooth) * 0.0013;
       this.time += 1 / sampleRate;
-      const rate = Math.max(72, this.smooth || this.freq) * (1 + 0.003 * Math.sin(2 * Math.PI * 5.1 * this.time));
+      const rate = Math.max(72, this.smooth) * Math.pow(2, this.vibrato * Math.sin(2 * Math.PI * 5.1 * this.time) / 1200);
       this.phase += rate / sampleRate;
       if (this.phase >= 1) this.phase -= 1;
       // PolyBLEP softens the saw discontinuity and reduces high frequency aliasing.

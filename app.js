@@ -7,18 +7,19 @@ const EFFECTS = {
   delay: { name: 'Delay', category: 'TIME', symbol: '↝', description: '소리를 일정 시간 뒤에 반복합니다.', params: { time: ['Time', 60, 800, 320, ' ms'], feedback: ['Feedback', 0, 85, 35, '%'], mix: ['Mix', 0, 80, 25, '%'] } },
   reverb: { name: 'Reverb', category: 'SPACE', symbol: '⌁', description: '실내의 울림을 합성합니다.', params: { decay: ['Decay', 1, 6, 3, ' s'], mix: ['Mix', 0, 80, 27, '%'] } },
   tremolo: { name: 'Tremolo', category: 'MODULATION', symbol: '∿', description: '음량을 주기적으로 떨리게 합니다.', params: { rate: ['Rate', 1, 12, 5, ' Hz'], depth: ['Depth', 0, 100, 50, '%'] } },
-  violin: { name: 'Saw / Violin', category: 'SYNTH + IR', symbol: '⋈', description: '단음 기타 피치를 추적해 SAW를 만들고 바디 IR로 착색합니다. 화음과 빠른 연주에서는 추적이 흔들릴 수 있습니다.', params: { body: ['Body', 0, 100, 70, '%'], brightness: ['Brightness', 0, 100, 44, '%'] } }
+  saw: { name: 'SAW Synth', category: 'WAVE CONVERT', symbol: '⋈', description: '기타 DI의 단음 피치와 세기를 따라 SAW 파형을 새로 만듭니다. Attack으로 소리가 시작되는 속도를 정하세요.', params: { attack: ['Attack', 20, 500, 145, ' ms'], release: ['Release', 80, 1800, 680, ' ms'], vibrato: ['Vibrato', 0, 30, 7, ' cent'], brightness: ['Brightness', 0, 100, 44, '%'] } },
+  ir: { name: 'Violin IR', category: 'BODY RESPONSE', symbol: '⌁', description: '앞 노드에서 만든 SAW 파형에 바이올린 바디 IR을 적용합니다. 실제 측정 IR은 아래에서 불러오세요.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
 };
 const presets = {
   clean: ['compressor', 'eq', null, null, null, null, null, null],
   ambient: ['compressor', 'drive', 'eq', 'chorus', 'delay', 'reverb', null, null],
-  violin: ['compressor', 'violin', 'eq', 'chorus', 'reverb', null, null, null]
+  violin: ['compressor', 'saw', 'ir', 'eq', 'chorus', 'reverb', null, null]
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, mode = 'device';
 let ctx, sourceBus, inputAnalyser, outputAnalyser, master, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
-let units = [], irBuffer = null, customIR = false, activeOutput = 'default', animationId;
+let units = [], chainGain = null, irBuffer = null, customIR = false, activeOutput = 'default', animationId;
 const sinkAudio = $('sink-audio');
 
 function notify(message, error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
@@ -52,12 +53,19 @@ function renderEditor() {
     const value = slot.values[key] ?? initial;
     group.innerHTML = `<label for="${id}">${label}<output>${value}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" value="${value}">`;
     const range = group.querySelector('input');
-    range.oninput = () => { slot.values[key] = +range.value; group.querySelector('output').textContent = `${range.value}${suffix}`; markCustom(); rebuild(); };
+    range.oninput = () => { slot.values[key] = +range.value; group.querySelector('output').textContent = `${range.value}${suffix}`; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
     return group;
   }));
-  $('ir-panel').hidden = slot.type !== 'violin';
+  $('ir-panel').hidden = slot.type !== 'ir';
 }
-function render() { renderChain(); renderEditor(); }
+function renderLiveSwitch() {
+  const saw = slots.find(s => s.type === 'saw'), ir = slots.find(s => s.type === 'ir');
+  const button = $('violin-switch'); button.hidden = !saw || !ir;
+  const active = !!saw && !!ir && !saw.bypass && !ir.bypass;
+  button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
+  button.firstChild.textContent = active ? 'VIOLIN ON ' : 'VIOLIN OFF ';
+}
+function render() { renderChain(); renderEditor(); renderLiveSwitch(); }
 function setEffect(type) { slots[selected] = newSlot(type); pickerOpen = false; markCustom(); render(); rebuild(); }
 for (const [key, effect] of Object.entries(EFFECTS)) {
   const button = document.createElement('button'); button.className = 'effect-option'; button.type = 'button';
@@ -68,10 +76,21 @@ const empty = document.createElement('button'); empty.type = 'button'; empty.cla
 empty.onclick = () => setEffect(null); $('effect-grid').append(empty);
 $('change-effect').onclick = () => { pickerOpen = true; renderEditor(); };
 $('bypass').onclick = () => { slots[selected].bypass = !slots[selected].bypass; markCustom(); render(); rebuild(); };
+$('violin-switch').onclick = () => {
+  const pair = slots.filter(s => s.type === 'saw' || s.type === 'ir');
+  if (pair.length !== 2) return;
+  const activate = pair.some(s => s.bypass);
+  pair.forEach(s => { s.bypass = !activate; });
+  markCustom(); render(); rebuild(); notify(activate ? '바이올린 체인을 켰습니다.' : '바이올린 체인을 껐습니다.');
+};
+document.addEventListener('keydown', (event) => {
+  if (event.key.toLowerCase() !== 'v' || event.altKey || event.ctrlKey || event.metaKey || /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
+  if (!$('violin-switch').hidden) { event.preventDefault(); $('violin-switch').click(); }
+});
 $('preset').onchange = (event) => {
   const preset = presets[event.target.value]; if (!preset) return;
-  slots = preset.map(newSlot); selected = 0; pickerOpen = false; irBuffer = null; customIR = false; $('ir-name').textContent = '기본값: 합성 바이올린 바디 응답';
-  render(); rebuild(); notify(`${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
+  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; customIR = false; $('ir-name').textContent = '기본값: 데모용 합성 바디 IR · 실제 바이올린 IR을 불러오면 교체됩니다.';
+  render(); rebuild(); notify(event.target.value === 'violin' ? 'DI → SAW Synth → Violin IR 체인을 불러왔습니다. 3번 노드에서 실제 바이올린 IR을 불러오세요.' : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
 };
 
 function impulse(seconds, decay, resonances = []) {
@@ -107,24 +126,41 @@ function makeUnit(slot) {
     case 'delay': { const delay = add(ctx.createDelay(1)), feedback = add(ctx.createGain()); delay.delayTime.value = p.time / 1000; feedback.gain.value = p.feedback / 100; delay.connect(feedback).connect(delay); const path = connectWet(input, delay, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
     case 'reverb': { const convolver = add(ctx.createConvolver()); convolver.buffer = impulse(p.decay, 6 / p.decay); const path = connectWet(input, convolver, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
     case 'tremolo': { const amp = add(ctx.createGain()), lfo = add(ctx.createOscillator()), depth = add(ctx.createGain()); amp.gain.value = 1 - p.depth / 200; depth.gain.value = p.depth / 200; lfo.frequency.value = p.rate; lfo.connect(depth).connect(amp.gain); lfo.start(); oscillators.push(lfo); input.connect(amp).connect(output); break; }
-    case 'violin': { const synth = add(new AudioWorkletNode(ctx, 'guitar-saw')), filter = add(ctx.createBiquadFilter()), convolver = add(ctx.createConvolver()), wet = add(ctx.createGain()), dry = add(ctx.createGain());
-      filter.type = 'lowpass'; filter.frequency.value = 1100 + p.brightness * 65; filter.Q.value = .55;
+    case 'saw': { const synth = add(new AudioWorkletNode(ctx, 'guitar-saw')), filter = add(ctx.createBiquadFilter());
+      filter.type = 'lowpass'; filter.Q.value = .55;
+      input.connect(synth).connect(filter).connect(output);
+      synth.port.onmessage = (event) => { $('signal-status').textContent = `SAW · 피치 추적 ${event.data.frequency} Hz`; };
+      const update = () => { synth.port.postMessage({ attack: p.attack, release: p.release, vibrato: p.vibrato }); filter.frequency.setTargetAtTime(1100 + p.brightness * 65, ctx.currentTime, .012); };
+      update(); return { input, output, nodes, oscillators, update };
+    }
+    case 'ir': { const convolver = add(ctx.createConvolver()), wet = add(ctx.createGain()), dry = add(ctx.createGain());
       convolver.buffer = irBuffer || impulse(.65, 19, [[285, 1.3, 14], [465, .9, 22], [690, .7, 33], [1120, .35, 43], [1680, .2, 60]]);
-      dry.gain.value = 1 - p.body / 100; wet.gain.value = p.body / 100;
-      input.connect(synth).connect(filter); filter.connect(dry).connect(output); filter.connect(convolver).connect(wet).connect(output);
-      synth.port.onmessage = (event) => { $('signal-status').textContent = `피치 추적 ${event.data.frequency} Hz`; };
-      break; }
+      wet.gain.value = p.mix / 100; dry.gain.value = 1 - p.mix / 100;
+      input.connect(convolver).connect(wet).connect(output); input.connect(dry).connect(output);
+      const update = () => { wet.gain.setTargetAtTime(p.mix / 100, ctx.currentTime, .012); dry.gain.setTargetAtTime(1 - p.mix / 100, ctx.currentTime, .012); };
+      update(); return { input, output, nodes, oscillators, update };
+    }
   }
   return { input, output, nodes, oscillators };
 }
 function rebuild() {
   if (!ctx) return;
-  inputAnalyser.disconnect();
-  for (const u of units) { for (const o of u.oscillators) { try { o.stop(); } catch {} } for (const node of u.nodes) node.disconnect(); }
-  units = slots.filter(s => s.type).map(makeUnit);
+  const previousUnits = units, previousGain = chainGain;
+  units = slots.map((slot, index) => slot.type ? { ...makeUnit(slot), slotIndex: index } : null).filter(Boolean);
+  chainGain = ctx.createGain(); chainGain.gain.value = previousGain ? 0 : 1;
   let cursor = inputAnalyser;
   for (const unit of units) { cursor.connect(unit.input); cursor = unit.output; }
-  cursor.connect(master);
+  cursor.connect(chainGain).connect(master);
+  if (previousGain) {
+    const now = ctx.currentTime;
+    previousGain.gain.setTargetAtTime(0, now, .009);
+    chainGain.gain.setTargetAtTime(1, now, .009);
+    setTimeout(() => {
+      inputAnalyser.disconnect(previousUnits.length ? previousUnits[0].input : previousGain);
+      for (const u of previousUnits) { for (const o of u.oscillators) { try { o.stop(); } catch {} } for (const node of u.nodes) node.disconnect(); }
+      previousGain.disconnect();
+    }, 100);
+  }
   $('signal-status').textContent = units.length ? `${units.length}개 이펙트 연결` : '드라이 신호';
 }
 async function startEngine() {
