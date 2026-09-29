@@ -56,9 +56,15 @@ function renderEditor() {
     const id = `param-${selected}-${key}`;
     const value = slot.values[key] ?? initial;
     if (key === 'peak' && slot.type === 'ocd') {
-      group.innerHTML = `<label for="${id}">${label}<output>${value ? 'HP' : 'LP'}</output></label><select id="${id}"><option value="0">LP · Low Peak</option><option value="1">HP · High Peak</option></select>`;
-      const control = group.querySelector('select'); control.value = String(value);
-      control.onchange = () => { slot.values[key] = +control.value; group.querySelector('output').textContent = control.value === '1' ? 'HP' : 'LP'; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
+      group.innerHTML = `<label id="${id}-label" for="${id}">${label}<output>${value ? 'HP' : 'LP'}</output></label><button id="${id}" class="peak-switch ${value ? 'hp' : ''}" type="button" role="switch" aria-checked="${!!value}" aria-labelledby="${id}-label"><span>LP</span><span>HP</span></button>`;
+      const control = group.querySelector('button');
+      control.onclick = () => {
+        slot.values[key] = slot.values[key] ? 0 : 1;
+        control.classList.toggle('hp', !!slot.values[key]);
+        control.setAttribute('aria-checked', String(!!slot.values[key]));
+        group.querySelector('output').textContent = slot.values[key] ? 'HP' : 'LP';
+        markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild();
+      };
     } else {
       group.innerHTML = `<label for="${id}">${label}<output>${value}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" value="${value}">`;
       const range = group.querySelector('input');
