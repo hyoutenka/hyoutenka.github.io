@@ -56,12 +56,22 @@ const presets = {
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
-let ctx, sourceBus, inputAnalyser, outputAnalyser, master, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
+let ctx, sourceBus, inputAnalyser, outputAnalyser, master, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
+let isMuted = false, outputRoute = 'context';
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
 function notify(message, error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
+function refreshLatencyInfo() {
+  if (!ctx) return;
+  const inputLatency = stream?.getAudioTracks()[0]?.getSettings().latency;
+  const parts = [];
+  if (Number.isFinite(inputLatency)) parts.push(`입력 ${Math.round(inputLatency * 1000)}ms`);
+  if (Number.isFinite(ctx.baseLatency)) parts.push(`엔진 ${Math.round(ctx.baseLatency * 1000)}ms`);
+  if (Number.isFinite(ctx.outputLatency)) parts.push(`출력 ${Math.round(ctx.outputLatency * 1000)}ms`);
+  $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'} · 실제 연주 지연은 장치에 따라 다릅니다.`;
+}
 function markCustom() { $('preset').value = 'custom'; }
 function renderChain() {
   $('chain').replaceChildren(...slots.map((slot, i) => {
@@ -315,10 +325,10 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
-    sourceBus = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); outputBus = ctx.createGain();
-    inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100;
-    sourceBus.connect(inputAnalyser); master.connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
-    rebuild(); await ctx.resume(); $('engine-state').textContent = 'ENGINE ON'; $('engine-state').classList.add('on'); $('power').textContent = '⏻ 오디오 실행 중';
+    sourceBus = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
+    inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100; muteGain.gain.value = isMuted ? 0 : 1;
+    sourceBus.connect(inputAnalyser); master.connect(muteGain).connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
+    rebuild(); await ctx.resume(); $('engine-state').textContent = 'ENGINE ON'; $('engine-state').classList.add('on'); $('power').textContent = '⏻ 오디오 실행 중'; refreshLatencyInfo();
     if (CAB_IRS[irSelection]) void loadLibraryIR(irSelection);
     meterLoop(); notify('오디오 엔진이 켜졌습니다. 입력 장치를 연결하거나 녹음 파일을 선택하세요.');
   } catch (error) { await ctx.close(); ctx = null; throw error; }
@@ -326,7 +336,7 @@ async function startEngine() {
 async function ensureEngine() { try { await startEngine(); return true; } catch (e) { notify(`오디오를 시작할 수 없습니다: ${e.message}`, true); return false; } }
 $('power').onclick = ensureEngine;
 
-function disconnectLive() { if (liveSource) { liveSource.disconnect(); liveSource = null; } if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } }
+function disconnectLive() { if (liveSource) { liveSource.disconnect(); liveSource = null; } if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } refreshLatencyInfo(); }
 function stopFile() { if (fileSource) { fileSource.onended = null; try { fileSource.stop(); } catch {} fileSource.disconnect(); fileSource = null; } $('play-file').disabled = !fileBuffer; $('stop-file').disabled = true; }
 async function refreshDevices() {
   if (!navigator.mediaDevices?.enumerateDevices) return;
@@ -342,12 +352,12 @@ async function connectInput() {
   if (!navigator.mediaDevices?.getUserMedia) { notify('입력 장치 연결에는 HTTPS 또는 localhost가 필요합니다.', true); return; }
   const id = $('input-device').value;
   try {
-    const nextStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+    const nextStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: { ideal: 0.01 }, channelCount: { ideal: 1 }, sampleRate: { ideal: ctx.sampleRate } }, video: false });
     disconnectLive(); stopFile(); stream = nextStream; liveSource = ctx.createMediaStreamSource(stream);
     if (mode === 'device') liveSource.connect(sourceBus);
     await refreshDevices(); const settingsId = stream.getAudioTracks()[0].getSettings().deviceId;
     if (settingsId) $('input-device').value = settingsId;
-    notify(`입력 연결: ${stream.getAudioTracks()[0].label || '오디오 인터페이스'}`);
+    refreshLatencyInfo(); notify(`입력 연결: ${stream.getAudioTracks()[0].label || '오디오 인터페이스'}`);
   } catch (e) { notify(`입력 연결 실패: ${e.message}`, true); }
 }
 $('request-input').onclick = connectInput;
@@ -356,16 +366,20 @@ navigator.mediaDevices?.addEventListener?.('devicechange', () => refreshDevices(
 async function routeOutput(id) {
   if (!await ensureEngine()) return;
   try {
-    outputBus.disconnect();
-    if (id === 'default') { sinkAudio.pause(); sinkAudio.srcObject = null; outputBus.connect(ctx.destination); }
-    else {
+    if (typeof ctx.setSinkId === 'function') {
+      await ctx.setSinkId(id);
+      if (outputRoute === 'media') { sinkAudio.pause(); sinkAudio.srcObject = null; outputBus.disconnect(); outputBus.connect(ctx.destination); }
+      outputRoute = 'context';
+    } else if (id === 'default') {
+      sinkAudio.pause(); sinkAudio.srcObject = null; outputBus.disconnect(); outputBus.connect(ctx.destination); outputRoute = 'context';
+    } else {
       if (!sinkAudio.setSinkId) throw new Error('이 브라우저는 출력 장치 선택을 지원하지 않습니다.');
       if (!mediaDest) mediaDest = ctx.createMediaStreamDestination();
-      await sinkAudio.setSinkId(id); sinkAudio.srcObject = mediaDest.stream;
-      outputBus.connect(mediaDest); await sinkAudio.play();
+      await sinkAudio.setSinkId(id); sinkAudio.srcObject = mediaDest.stream; await sinkAudio.play();
+      outputBus.disconnect(); outputBus.connect(mediaDest); outputRoute = 'media';
     }
-    activeOutput = id; notify(id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 연결했습니다.');
-  } catch (e) { outputBus.disconnect(); outputBus.connect(ctx.destination); activeOutput = 'default'; $('output-device').value = 'default'; notify(`출력 변경 실패: ${e.message}`, true); }
+    activeOutput = id; refreshLatencyInfo(); notify(id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 연결했습니다.');
+  } catch (e) { notify(`출력 변경 실패: ${e.message}`, true); $('output-device').value = activeOutput; }
 }
 $('output-device').onchange = (e) => routeOutput(e.target.value);
 $('choose-output').onclick = async () => {
@@ -376,6 +390,14 @@ $('choose-output').onclick = async () => {
   } catch (e) { if (e.name !== 'NotAllowedError') notify(`장치를 선택할 수 없습니다: ${e.message}`, true); }
 };
 $('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); };
+$('mute').onclick = () => {
+  isMuted = !isMuted;
+  $('mute').textContent = isMuted ? '뮤트 ON' : '뮤트 OFF';
+  $('mute').classList.toggle('active', isMuted);
+  $('mute').setAttribute('aria-pressed', String(isMuted));
+  if (muteGain) muteGain.gain.setTargetAtTime(isMuted ? 0 : 1, ctx.currentTime, .005);
+  notify(isMuted ? '출력을 음소거했습니다.' : '출력 음소거를 해제했습니다.');
+};
 function switchMode(next) {
   mode = next; $('tab-device').classList.toggle('active', next === 'device'); $('tab-file').classList.toggle('active', next === 'file');
   $('device-panel').hidden = next !== 'device'; $('file-panel').hidden = next !== 'file';
