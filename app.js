@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const EFFECTS = {
   compressor: { name: 'Compressor', category: 'DYNAMICS', symbol: '◫', description: '연주의 큰 소리와 작은 소리 차이를 줄입니다.', params: { threshold: ['Threshold', -40, 0, -22, 'dB'], ratio: ['Ratio', 1, 12, 4, ':1'] } },
+  cp10: { name: 'CP10 Circuit', category: 'VCA COMPRESSOR', symbol: '▤', description: '첨부된 Ibanez CP10 회로 기반 근사: BA6110 가변 이득 증폭기와 정류·타이밍 회로를 모델링했습니다. Sustain은 압축 감도, Attack은 시작 속도, Level은 출력량을 조절합니다.', params: { sustain: ['Sustain', 0, 100, 55, '%'], attack: ['Attack', 0, 100, 40, '%'], level: ['Level', 0, 100, 65, '%'] } },
   drive: { name: 'Overdrive', category: 'GAIN', symbol: 'ϟ', description: '신호를 포화시켜 거친 배음을 만듭니다.', params: { gain: ['Drive', 0, 100, 35, '%'], tone: ['Tone', 0, 100, 55, '%'] } },
   janray: { name: 'Jan Ray Circuit', category: 'CIRCUIT DRIVE', symbol: '◇', description: '첨부된 Jan Ray V1.0 회로 기반 근사: 1N4148 피드백 클리핑 → Treble 필터 → 2단 증폭. Trim은 내부 트리머입니다. 실제 페달과 입력 전압은 보정되지 않았습니다.', params: { gain: ['Gain', 0, 100, 35, '%'], bass: ['Bass', 0, 100, 50, '%'], treble: ['Treble', 0, 100, 65, '%'], trim: ['Trim', 0, 100, 50, '%'], volume: ['Volume', 0, 100, 70, '%'] } },
   ocd: { name: 'OCD Circuit', category: 'MOSFET DRIVE', symbol: '⟐', description: '첨부된 Fulltone OCD 회로 기반 근사: 주파수 의존 증폭 → 2N7000 MOSFET 클리핑 → 2단 증폭 → Tone·HP/LP 출력망. HP/LP는 High Peak/Low Peak입니다.', params: { drive: ['Drive', 0, 100, 42, '%'], tone: ['Tone', 0, 100, 55, '%'], peak: ['Peak mode', 0, 1, 0, ''], volume: ['Volume', 0, 100, 60, '%'] } },
@@ -14,6 +15,7 @@ const EFFECTS = {
 };
 const presets = {
   clean: ['compressor', 'eq', null, null, null, null, null, null],
+  cp10: ['cp10', null, null, null, null, null, null, null],
   ambient: ['compressor', 'drive', 'eq', 'chorus', 'delay', 'reverb', null, null],
   janray: ['janray', null, null, null, null, null, null, null],
   ocd: ['ocd', null, null, null, null, null, null, null],
@@ -133,6 +135,11 @@ function makeUnit(slot) {
   const add = (...items) => { nodes.push(...items); return items[0]; };
   switch (slot.type) {
     case 'compressor': { const c = add(ctx.createDynamicsCompressor()); c.threshold.value = p.threshold; c.ratio.value = p.ratio; c.knee.value = 20; c.attack.value = .004; c.release.value = .16; input.connect(c).connect(output); break; }
+    case 'cp10': { const circuit = add(new AudioWorkletNode(ctx, 'cp10-compressor'));
+      input.connect(circuit).connect(output);
+      const update = () => circuit.port.postMessage({ sustain: p.sustain, attack: p.attack, level: p.level });
+      update(); return { input, output, nodes, oscillators, update };
+    }
     case 'drive': { const pre = add(ctx.createGain()), shaper = add(ctx.createWaveShaper()), tone = add(ctx.createBiquadFilter()), post = add(ctx.createGain());
       pre.gain.value = 1 + p.gain / 8; const curve = new Float32Array(2048); for (let i = 0; i < curve.length; i++) { const x = 2 * i / (curve.length - 1) - 1; curve[i] = Math.tanh(x * (1 + p.gain / 13)); }
       shaper.curve = curve; shaper.oversample = '4x'; tone.type = 'lowpass'; tone.frequency.value = 900 + p.tone * 85; post.gain.value = .52;
@@ -197,6 +204,7 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
     sourceBus = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); outputBus = ctx.createGain();
     inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100;
     sourceBus.connect(inputAnalyser); master.connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
