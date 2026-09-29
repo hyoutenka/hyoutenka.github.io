@@ -3,6 +3,7 @@ const EFFECTS = {
   compressor: { name: 'Compressor', category: 'DYNAMICS', symbol: '◫', description: '연주의 큰 소리와 작은 소리 차이를 줄입니다.', params: { threshold: ['Threshold', -40, 0, -22, 'dB'], ratio: ['Ratio', 1, 12, 4, ':1'] } },
   drive: { name: 'Overdrive', category: 'GAIN', symbol: 'ϟ', description: '신호를 포화시켜 거친 배음을 만듭니다.', params: { gain: ['Drive', 0, 100, 35, '%'], tone: ['Tone', 0, 100, 55, '%'] } },
   janray: { name: 'Jan Ray Circuit', category: 'CIRCUIT DRIVE', symbol: '◇', description: '첨부된 Jan Ray V1.0 회로 기반 근사: 1N4148 피드백 클리핑 → Treble 필터 → 2단 증폭. Trim은 내부 트리머입니다. 실제 페달과 입력 전압은 보정되지 않았습니다.', params: { gain: ['Gain', 0, 100, 35, '%'], bass: ['Bass', 0, 100, 50, '%'], treble: ['Treble', 0, 100, 65, '%'], trim: ['Trim', 0, 100, 50, '%'], volume: ['Volume', 0, 100, 70, '%'] } },
+  ocd: { name: 'OCD Circuit', category: 'MOSFET DRIVE', symbol: '⟐', description: '첨부된 Fulltone OCD 회로 기반 근사: 주파수 의존 증폭 → 2N7000 MOSFET 클리핑 → 2단 증폭 → Tone·HP/LP 출력망. HP/LP는 High Peak/Low Peak입니다.', params: { drive: ['Drive', 0, 100, 42, '%'], tone: ['Tone', 0, 100, 55, '%'], peak: ['Peak mode', 0, 1, 0, ''], volume: ['Volume', 0, 100, 60, '%'] } },
   eq: { name: 'Tone EQ', category: 'FILTER', symbol: '≋', description: '저음과 고음의 균형을 조절합니다.', params: { bass: ['Bass', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'] } },
   chorus: { name: 'Chorus', category: 'MODULATION', symbol: '≈', description: '짧게 흔들리는 복제 신호로 폭을 더합니다.', params: { rate: ['Rate', 1, 100, 35, '%'], mix: ['Mix', 0, 100, 40, '%'] } },
   delay: { name: 'Delay', category: 'TIME', symbol: '↝', description: '소리를 일정 시간 뒤에 반복합니다.', params: { time: ['Time', 60, 800, 320, ' ms'], feedback: ['Feedback', 0, 85, 35, '%'], mix: ['Mix', 0, 80, 25, '%'] } },
@@ -15,6 +16,7 @@ const presets = {
   clean: ['compressor', 'eq', null, null, null, null, null, null],
   ambient: ['compressor', 'drive', 'eq', 'chorus', 'delay', 'reverb', null, null],
   janray: ['janray', null, null, null, null, null, null, null],
+  ocd: ['ocd', null, null, null, null, null, null, null],
   violin: ['compressor', 'saw', 'ir', 'eq', 'chorus', 'reverb', null, null]
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
@@ -53,9 +55,15 @@ function renderEditor() {
     const group = document.createElement('div'); group.className = 'parameter';
     const id = `param-${selected}-${key}`;
     const value = slot.values[key] ?? initial;
-    group.innerHTML = `<label for="${id}">${label}<output>${value}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" value="${value}">`;
-    const range = group.querySelector('input');
-    range.oninput = () => { slot.values[key] = +range.value; group.querySelector('output').textContent = `${range.value}${suffix}`; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
+    if (key === 'peak' && slot.type === 'ocd') {
+      group.innerHTML = `<label for="${id}">${label}<output>${value ? 'HP' : 'LP'}</output></label><select id="${id}"><option value="0">LP · Low Peak</option><option value="1">HP · High Peak</option></select>`;
+      const control = group.querySelector('select'); control.value = String(value);
+      control.onchange = () => { slot.values[key] = +control.value; group.querySelector('output').textContent = control.value === '1' ? 'HP' : 'LP'; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
+    } else {
+      group.innerHTML = `<label for="${id}">${label}<output>${value}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" value="${value}">`;
+      const range = group.querySelector('input');
+      range.oninput = () => { slot.values[key] = +range.value; group.querySelector('output').textContent = `${range.value}${suffix}`; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
+    }
     return group;
   }));
   $('ir-panel').hidden = slot.type !== 'ir';
@@ -128,6 +136,11 @@ function makeUnit(slot) {
       const update = () => circuit.port.postMessage({ gain: p.gain, bass: p.bass, treble: p.treble, trim: p.trim, volume: p.volume });
       update(); return { input, output, nodes, oscillators, update };
     }
+    case 'ocd': { const circuit = add(new AudioWorkletNode(ctx, 'ocd-circuit'));
+      input.connect(circuit).connect(output);
+      const update = () => circuit.port.postMessage({ drive: p.drive, tone: p.tone, peak: p.peak, volume: p.volume });
+      update(); return { input, output, nodes, oscillators, update };
+    }
     case 'eq': { const low = add(ctx.createBiquadFilter()), high = add(ctx.createBiquadFilter()); low.type = 'lowshelf'; low.frequency.value = 250; low.gain.value = p.bass; high.type = 'highshelf'; high.frequency.value = 3200; high.gain.value = p.treble; input.connect(low).connect(high).connect(output); break; }
     case 'chorus': { const delay = add(ctx.createDelay(.08)), lfo = add(ctx.createOscillator()), depth = add(ctx.createGain()); delay.delayTime.value = .023; lfo.frequency.value = .15 + p.rate / 65; depth.gain.value = .0035; lfo.connect(depth).connect(delay.delayTime); lfo.start(); oscillators.push(lfo); const path = connectWet(input, delay, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
     case 'delay': { const delay = add(ctx.createDelay(1)), feedback = add(ctx.createGain()); delay.delayTime.value = p.time / 1000; feedback.gain.value = p.feedback / 100; delay.connect(feedback).connect(delay); const path = connectWet(input, delay, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
@@ -177,6 +190,7 @@ async function startEngine() {
   try {
     await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     sourceBus = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); outputBus = ctx.createGain();
     inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100;
     sourceBus.connect(inputAnalyser); master.connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
