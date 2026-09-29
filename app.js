@@ -11,7 +11,7 @@ const EFFECTS = {
   reverb: { name: 'Reverb', category: 'SPACE', symbol: '⌁', description: '실내의 울림을 합성합니다.', params: { decay: ['Decay', 1, 6, 3, ' s'], mix: ['Mix', 0, 80, 27, '%'] } },
   tremolo: { name: 'Tremolo', category: 'MODULATION', symbol: '∿', description: '음량을 주기적으로 떨리게 합니다.', params: { rate: ['Rate', 1, 12, 5, ' Hz'], depth: ['Depth', 0, 100, 50, '%'] } },
   saw: { name: 'SAW Synth', category: 'WAVE CONVERT', symbol: '⋈', description: '기타 DI의 단음 피치와 세기를 따라 SAW 파형을 새로 만듭니다. Attack으로 소리가 시작되는 속도를 정하세요.', params: { attack: ['Attack', 20, 500, 145, ' ms'], release: ['Release', 80, 1800, 680, ' ms'], vibrato: ['Vibrato', 0, 30, 7, ' cent'], brightness: ['Brightness', 0, 100, 44, '%'] } },
-  ir: { name: 'Violin IR', category: 'BODY RESPONSE', symbol: '⌁', description: '앞 노드에서 만든 SAW 파형에 바이올린 바디 IR을 적용합니다. 실제 측정 IR은 아래에서 불러오세요.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
+  ir: { name: 'IR', category: 'CONVOLUTION', symbol: '⌁', description: '불러온 임펄스 응답(IR)을 입력 신호에 적용합니다. 바이올린 바디 IR뿐 아니라 다른 악기·공간 IR도 사용할 수 있습니다.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
 };
 const presets = {
   clean: ['compressor', 'eq', null, null, null, null, null, null],
@@ -107,8 +107,8 @@ document.addEventListener('keydown', (event) => {
 });
 $('preset').onchange = (event) => {
   const preset = presets[event.target.value]; if (!preset) return;
-  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; customIR = false; $('ir-name').textContent = '기본값: 데모용 합성 바디 IR · 실제 바이올린 IR을 불러오면 교체됩니다.';
-  render(); rebuild(); notify(event.target.value === 'violin' ? 'DI → SAW Synth → Violin IR 체인을 불러왔습니다. 3번 노드에서 실제 바이올린 IR을 불러오세요.' : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
+  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; customIR = false; $('ir-name').textContent = '기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.';
+  render(); rebuild(); notify(event.target.value === 'violin' ? 'DI → SAW Synth → IR 체인을 불러왔습니다. 3번 IR 블록에서 바이올린 IR 파일을 불러오세요.' : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
 };
 
 function impulse(seconds, decay, resonances = []) {
