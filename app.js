@@ -11,8 +11,22 @@ const EFFECTS = {
   reverb: { name: 'Reverb', category: 'SPACE', symbol: '⌁', description: '실내의 울림을 합성합니다.', params: { decay: ['Decay', 1, 6, 3, ' s'], mix: ['Mix', 0, 80, 27, '%'] } },
   tremolo: { name: 'Tremolo', category: 'MODULATION', symbol: '∿', description: '음량을 주기적으로 떨리게 합니다.', params: { rate: ['Rate', 1, 12, 5, ' Hz'], depth: ['Depth', 0, 100, 50, '%'] } },
   saw: { name: 'SAW Synth', category: 'WAVE CONVERT', symbol: '⋈', description: '기타 DI의 단음 피치와 세기를 따라 SAW 파형을 새로 만듭니다. Attack으로 소리가 시작되는 속도를 정하세요.', params: { attack: ['Attack', 20, 500, 145, ' ms'], release: ['Release', 80, 1800, 680, ' ms'], vibrato: ['Vibrato', 0, 30, 7, ' cent'], brightness: ['Brightness', 0, 100, 44, '%'] } },
+  synth: { name: 'Mono Synth', category: 'PITCH SYNTH', symbol: '◈', description: '기타의 단음 피치와 세기를 추적해 Sine, Triangle, Square 파형으로 합성합니다. 화음 연주에는 적합하지 않습니다.', params: { waveform: ['Waveform', 0, 2, 0, ''], attack: ['Attack', 20, 500, 100, ' ms'], release: ['Release', 80, 1800, 450, ' ms'], brightness: ['Brightness', 0, 100, 60, '%'] } },
+  amp: { name: 'Amp', category: 'PREAMP', symbol: '▥', description: '프리앰프의 저역 정리, 소프트 클리핑, 고역 롤오프를 간단히 모사합니다. 스피커 응답은 필요하면 뒤에 IR 블록을 추가하세요.', params: { gain: ['Gain', 0, 100, 35, '%'], tone: ['Tone', 0, 100, 55, '%'], level: ['Level', 0, 100, 60, '%'] } },
   ir: { name: 'IR', category: 'CONVOLUTION', symbol: '⌁', description: '불러온 임펄스 응답(IR)을 입력 신호에 적용합니다. 바이올린 바디 IR뿐 아니라 다른 악기·공간 IR도 사용할 수 있습니다.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
 };
+const CATEGORIES = [
+  { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10'] },
+  { id: 'drive', label: 'Drive', effects: ['drive', 'janray', 'ocd'] },
+  { id: 'delay', label: 'Delay', effects: ['delay'] },
+  { id: 'reverb', label: 'Reverb', effects: ['reverb'] },
+  { id: 'mod', label: 'Mod', effects: ['chorus', 'tremolo'] },
+  { id: 'saw', label: 'SAW', effects: ['saw'] },
+  { id: 'synth', label: 'Synth', effects: ['synth'] },
+  { id: 'amp', label: 'Amp', effects: ['amp'] },
+  { id: 'ir', label: 'IR', effects: ['ir'] },
+  { id: 'eq', label: 'EQ', effects: ['eq'] }
+];
 const presets = {
   clean: ['compressor', 'eq', null, null, null, null, null, null],
   cp10: ['cp10', null, null, null, null, null, null, null],
@@ -23,7 +37,7 @@ const presets = {
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
-let selected = 0, pickerOpen = true, mode = 'device';
+let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
 let ctx, sourceBus, inputAnalyser, outputAnalyser, master, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
 let units = [], chainGain = null, irBuffer = null, customIR = false, activeOutput = 'default', animationId;
 const sinkAudio = $('sink-audio');
@@ -51,6 +65,7 @@ function renderEditor() {
   $('bypass').hidden = !meta || pickerOpen;
   $('bypass').classList.toggle('active', !!slot.bypass);
   $('bypass').textContent = slot.bypass ? 'BYPASS ON' : 'BYPASS OFF';
+  if (!meta || pickerOpen) renderPicker();
   if (!meta || pickerOpen) return;
   $('effect-description').textContent = meta.description;
   $('parameter-list').replaceChildren(...Object.entries(meta.params).map(([key, [label, min, max, initial, suffix]]) => {
@@ -67,6 +82,10 @@ function renderEditor() {
         group.querySelector('output').textContent = slot.values[key] ? 'HP' : 'LP';
         markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild();
       };
+    } else if (key === 'waveform' && slot.type === 'synth') {
+      group.innerHTML = `<label for="${id}">${label}</label><select id="${id}"><option value="0">Sine</option><option value="1">Triangle</option><option value="2">Square</option></select>`;
+      const control = group.querySelector('select'); control.value = String(value);
+      control.onchange = () => { slot.values[key] = +control.value; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
     } else {
       group.innerHTML = `<label for="${id}">${label}<output>${value}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" value="${value}">`;
       const range = group.querySelector('input');
@@ -85,14 +104,29 @@ function renderLiveSwitch() {
 }
 function render() { renderChain(); renderEditor(); renderLiveSwitch(); }
 function setEffect(type) { slots[selected] = newSlot(type); pickerOpen = false; markCustom(); render(); rebuild(); }
-for (const [key, effect] of Object.entries(EFFECTS)) {
-  const button = document.createElement('button'); button.className = 'effect-option'; button.type = 'button';
-  button.innerHTML = `<span aria-hidden="true">${effect.symbol}</span><strong>${effect.name}</strong>`;
-  button.onclick = () => setEffect(key); $('effect-grid').append(button);
+function renderPicker() {
+  if (!$('category-list').children.length) $('category-list').replaceChildren(...CATEGORIES.map(category => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'category-option';
+    button.textContent = category.label;
+    button.onclick = () => { activeCategory = category.id; renderPicker(); };
+    return button;
+  }));
+  CATEGORIES.forEach((category, index) => {
+    const button = $('category-list').children[index];
+    button.classList.toggle('active', activeCategory === category.id);
+    button.setAttribute('aria-pressed', String(activeCategory === category.id));
+  });
+  const category = CATEGORIES.find(item => item.id === activeCategory);
+  $('category-heading').textContent = `${category.label} · ${category.effects.length}개 선택지`;
+  $('effect-grid').replaceChildren(...category.effects.map(key => {
+    const effect = EFFECTS[key], button = document.createElement('button'); button.className = 'effect-option'; button.type = 'button';
+    button.innerHTML = `<span aria-hidden="true">${effect.symbol}</span><strong>${effect.name}</strong><small>${effect.category}</small>`;
+    button.onclick = () => setEffect(key); return button;
+  }));
+  $('clear-slot').hidden = !slots[selected].type;
 }
-const empty = document.createElement('button'); empty.type = 'button'; empty.className = 'effect-option'; empty.innerHTML = '<span aria-hidden="true">×</span><strong>비우기</strong>';
-empty.onclick = () => setEffect(null); $('effect-grid').append(empty);
-$('change-effect').onclick = () => { pickerOpen = true; renderEditor(); };
+$('clear-slot').onclick = () => setEffect(null);
+$('change-effect').onclick = () => { activeCategory = CATEGORIES.find(c => c.effects.includes(slots[selected].type))?.id || 'compressor'; pickerOpen = true; renderEditor(); };
 $('bypass').onclick = () => { slots[selected].bypass = !slots[selected].bypass; markCustom(); render(); rebuild(); };
 $('violin-switch').onclick = () => {
   const pair = slots.filter(s => s.type === 'saw' || s.type === 'ir');
@@ -144,6 +178,11 @@ function makeUnit(slot) {
       pre.gain.value = 1 + p.gain / 8; const curve = new Float32Array(2048); for (let i = 0; i < curve.length; i++) { const x = 2 * i / (curve.length - 1) - 1; curve[i] = Math.tanh(x * (1 + p.gain / 13)); }
       shaper.curve = curve; shaper.oversample = '4x'; tone.type = 'lowpass'; tone.frequency.value = 900 + p.tone * 85; post.gain.value = .52;
       input.connect(pre).connect(shaper).connect(tone).connect(post).connect(output); break; }
+    case 'amp': { const highpass = add(ctx.createBiquadFilter()), pre = add(ctx.createGain()), shaper = add(ctx.createWaveShaper()), tone = add(ctx.createBiquadFilter()), post = add(ctx.createGain());
+      highpass.type = 'highpass'; highpass.frequency.value = 75; pre.gain.value = 1.5 + p.gain * .14;
+      const curve = new Float32Array(2048); for (let i = 0; i < curve.length; i++) { const x = i * 2 / (curve.length - 1) - 1; curve[i] = Math.tanh(2.5 * x) / Math.tanh(2.5); }
+      shaper.curve = curve; shaper.oversample = '4x'; tone.type = 'lowpass'; tone.frequency.value = 1500 + p.tone * 85; post.gain.value = (p.level / 100) * .38;
+      input.connect(highpass).connect(pre).connect(shaper).connect(tone).connect(post).connect(output); break; }
     case 'janray': { const circuit = add(new AudioWorkletNode(ctx, 'jan-ray-circuit'));
       input.connect(circuit).connect(output);
       const update = () => circuit.port.postMessage({ gain: p.gain, bass: p.bass, treble: p.treble, trim: p.trim, volume: p.volume });
@@ -159,11 +198,12 @@ function makeUnit(slot) {
     case 'delay': { const delay = add(ctx.createDelay(1)), feedback = add(ctx.createGain()); delay.delayTime.value = p.time / 1000; feedback.gain.value = p.feedback / 100; delay.connect(feedback).connect(delay); const path = connectWet(input, delay, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
     case 'reverb': { const convolver = add(ctx.createConvolver()); convolver.buffer = impulse(p.decay, 6 / p.decay); const path = connectWet(input, convolver, p.mix / 100, output); nodes.push(path.dry, path.wet); break; }
     case 'tremolo': { const amp = add(ctx.createGain()), lfo = add(ctx.createOscillator()), depth = add(ctx.createGain()); amp.gain.value = 1 - p.depth / 200; depth.gain.value = p.depth / 200; lfo.frequency.value = p.rate; lfo.connect(depth).connect(amp.gain); lfo.start(); oscillators.push(lfo); input.connect(amp).connect(output); break; }
-    case 'saw': { const synth = add(new AudioWorkletNode(ctx, 'guitar-saw')), filter = add(ctx.createBiquadFilter());
+    case 'saw':
+    case 'synth': { const synth = add(new AudioWorkletNode(ctx, 'guitar-saw')), filter = add(ctx.createBiquadFilter());
       filter.type = 'lowpass'; filter.Q.value = .55;
       input.connect(synth).connect(filter).connect(output);
-      synth.port.onmessage = (event) => { $('signal-status').textContent = `SAW · 피치 추적 ${event.data.frequency} Hz`; };
-      const update = () => { synth.port.postMessage({ attack: p.attack, release: p.release, vibrato: p.vibrato }); filter.frequency.setTargetAtTime(1100 + p.brightness * 65, ctx.currentTime, .012); };
+      synth.port.onmessage = (event) => { $('signal-status').textContent = `${slot.type === 'saw' ? 'SAW' : 'Synth'} · 피치 추적 ${event.data.frequency} Hz`; };
+      const update = () => { synth.port.postMessage({ attack: p.attack, release: p.release, vibrato: p.vibrato || 0, waveform: slot.type === 'saw' ? 'saw' : ['sine', 'triangle', 'square'][p.waveform] }); filter.frequency.setTargetAtTime(1100 + p.brightness * 65, ctx.currentTime, .012); };
       update(); return { input, output, nodes, oscillators, update };
     }
     case 'ir': { const convolver = add(ctx.createConvolver()), wet = add(ctx.createGain()), dry = add(ctx.createGain());

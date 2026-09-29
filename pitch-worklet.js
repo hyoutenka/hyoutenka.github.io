@@ -16,10 +16,12 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     this.attack = 145;
     this.release = 680;
     this.vibrato = 7;
+    this.waveform = 'saw';
     this.port.onmessage = ({ data }) => {
       this.attack = Math.max(20, Math.min(500, +data.attack || 145));
       this.release = Math.max(80, Math.min(1800, +data.release || 680));
       this.vibrato = Math.max(0, Math.min(30, +data.vibrato || 0));
+      this.waveform = ['saw', 'sine', 'triangle', 'square'].includes(data.waveform) ? data.waveform : 'saw';
     };
   }
   detect() {
@@ -91,7 +93,10 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
       let saw = 2 * this.phase - 1;
       if (this.phase < dt) { const t = this.phase / dt; saw -= t + t - t * t - 1; }
       else if (this.phase > 1 - dt) { const t = (this.phase - 1) / dt; saw -= t * t + t + t + 1; }
-      const value = saw * this.env * 0.95;
+      const wave = this.waveform === 'sine' ? Math.sin(2 * Math.PI * this.phase)
+        : this.waveform === 'triangle' ? 1 - 4 * Math.abs(this.phase - .5)
+        : this.waveform === 'square' ? Math.tanh(5 * Math.sin(2 * Math.PI * this.phase)) : saw;
+      const value = wave * this.env * 0.95;
       for (const channel of output) channel[i] = value;
     }
     return true;

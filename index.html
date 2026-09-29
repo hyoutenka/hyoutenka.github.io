@@ -46,7 +46,7 @@
 
       <section class="card editor" aria-labelledby="editor-title">
         <div class="card-head"><div><p class="eyebrow" id="editor-index">SLOT 01</p><h2 id="editor-title">이펙트 선택</h2></div><button id="bypass" class="bypass" type="button" hidden>BYPASS</button></div>
-        <div id="effect-picker"><p class="help">원하는 이펙트를 누르면 이 슬롯에 삽입됩니다.</p><div class="effect-grid" id="effect-grid"></div></div>
+        <div id="effect-picker"><p class="help">종류를 고른 뒤 원하는 페달을 선택하세요.</p><div id="category-list" class="category-list" role="group" aria-label="이펙트 대분류"></div><p id="category-heading" class="category-heading"></p><div class="effect-grid" id="effect-grid"></div><button id="clear-slot" class="text-button" type="button" hidden>이 슬롯 비우기</button></div>
         <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="ir-panel" hidden><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
       </section>
     </div>
@@ -54,6 +54,6 @@
     <footer>헤드폰 권장 · 오디오는 기기 안에서 처리됩니다. SAW 변환은 단음 입력에 맞춰졌으며, 실제 바이올린 음색은 불러온 IR과 연주 방식에 따라 달라집니다.</footer>
   </main>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=generic-ir-block"></script>
+  <script type="module" src="./app.js?v=effect-categories"></script>
 </body>
 </html>
