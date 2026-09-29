@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=effect-categories">
+  <link rel="stylesheet" href="./styles.css?v=nam-captures-1">
 </head>
 <body>
   <header class="topbar">
@@ -17,7 +17,7 @@
   <main class="workspace">
     <section class="toolbar" aria-label="프리셋">
       <div><p class="eyebrow">PEDALBOARD / 01</p><h1>Signal chain</h1><p class="muted">슬롯을 눌러 이펙트를 선택하고 왼쪽부터 순서대로 소리를 만드세요.</p></div>
-      <div class="toolbar-actions"><button id="violin-switch" class="violin-switch" type="button" aria-pressed="false" hidden>VIOLIN OFF <span>V</span></button><label class="preset-label">프리셋 <select id="preset"><option value="custom">사용자 설정</option><option value="clean">Clean studio</option><option value="cp10">CP10 circuit</option><option value="ambient">Ambient lead</option><option value="janray">Jan Ray circuit</option><option value="ocd">OCD circuit</option><option value="violin">Electric violin</option></select></label></div>
+      <div class="toolbar-actions"><button id="violin-switch" class="violin-switch" type="button" aria-pressed="false" hidden>VIOLIN OFF <span>V</span></button><label class="preset-label">프리셋 <select id="preset"><option value="custom">사용자 설정</option><option value="clean">Clean studio</option><option value="cp10">CP10 circuit</option><option value="ambient">Ambient lead</option><option value="janray">Jan Ray circuit</option><option value="ocd">OCD circuit</option><option value="nam_ac10">NAM · AC10</option><option value="nam_deluxe">NAM · Deluxe</option><option value="nam_jcm">NAM · JCM</option><option value="violin">Electric violin</option></select></label></div>
     </section>
 
     <section class="signal-panel" aria-label="신호 경로">
@@ -47,13 +47,13 @@
       <section class="card editor" aria-labelledby="editor-title">
         <div class="card-head"><div><p class="eyebrow" id="editor-index">SLOT 01</p><h2 id="editor-title">이펙트 선택</h2></div><button id="bypass" class="bypass" type="button" hidden>BYPASS</button></div>
         <div id="effect-picker"><p class="help">종류를 고른 뒤 원하는 페달을 선택하세요.</p><div id="category-list" class="category-list" role="group" aria-label="이펙트 대분류"></div><p id="category-heading" class="category-heading"></p><div class="effect-grid" id="effect-grid"></div><button id="clear-slot" class="text-button" type="button" hidden>이 슬롯 비우기</button></div>
-        <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="ir-panel" hidden><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
+        <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="nam-panel" hidden><p id="nam-status" class="help" role="status">오디오 시작을 누르면 모델을 불러옵니다.</p><a id="nam-source" href="https://github.com/tone-3000/neural-amp-modeler-wasm" target="_blank" rel="noopener noreferrer">캡처 출처 · TONE3000 NAM 예제</a></div><div id="ir-panel" hidden><label for="ir-library">IR 선택</label><select id="ir-library"><option value="body">데모 합성 바디</option><option value="celestion">Celestion 캐비닛</option><option value="mesa">Mesa 캐비닛</option><option value="none">IR 없음</option><option value="custom" hidden>사용자 IR</option></select><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
       </section>
     </div>
     <div class="notice" role="status" id="notice">오디오 시작을 누르면 브라우저의 오디오 엔진이 켜집니다.</div>
     <footer>헤드폰 권장 · 오디오는 기기 안에서 처리됩니다. SAW 변환은 단음 입력에 맞춰졌으며, 실제 바이올린 음색은 불러온 IR과 연주 방식에 따라 달라집니다.</footer>
   </main>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=effect-categories-2"></script>
+  <script type="module" src="./app.js?v=nam-captures-1"></script>
 </body>
 </html>

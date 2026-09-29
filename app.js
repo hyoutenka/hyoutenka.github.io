@@ -1,4 +1,14 @@
 const $ = (id) => document.getElementById(id);
+const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
+const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
+const NAM_MODELS = {
+  nam_ac10: { name: 'AC10 Capture', file: 'ac10.nam', note: '맑고 가벼운 브리티시 계열' },
+  nam_deluxe: { name: 'Deluxe Capture', file: 'deluxe.nam', note: '따뜻한 아메리칸 클린 계열' },
+  nam_jcm: { name: 'JCM Capture', file: 'jcm.nam', note: '강한 미드레인지의 브리티시 드라이브 계열' }
+};
+const NAM_MODEL_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/models/';
+const CAB_IR_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/irs/';
+const CAB_IRS = { celestion: 'celestion.wav', mesa: 'mesa.wav' };
 const EFFECTS = {
   compressor: { name: 'Compressor', category: 'DYNAMICS', symbol: '◫', description: '연주의 큰 소리와 작은 소리 차이를 줄입니다.', params: { threshold: ['Threshold', -40, 0, -22, 'dB'], ratio: ['Ratio', 1, 12, 4, ':1'] } },
   cp10: { name: 'CP10 Circuit', category: 'VCA COMPRESSOR', symbol: '▤', description: '첨부된 Ibanez CP10 회로 기반 근사: BA6110 가변 이득 증폭기와 정류·타이밍 회로를 모델링했습니다. Sustain은 압축 감도, Attack은 시작 속도, Level은 출력량을 조절합니다.', params: { sustain: ['Sustain', 0, 100, 55, '%'], attack: ['Attack', 0, 100, 40, '%'], level: ['Level', 0, 100, 65, '%'] } },
@@ -15,6 +25,11 @@ const EFFECTS = {
   amp: { name: 'Amp', category: 'PREAMP', symbol: '▥', description: '프리앰프의 저역 정리, 소프트 클리핑, 고역 롤오프를 간단히 모사합니다. 스피커 응답은 필요하면 뒤에 IR 블록을 추가하세요.', params: { gain: ['Gain', 0, 100, 35, '%'], tone: ['Tone', 0, 100, 55, '%'], level: ['Level', 0, 100, 60, '%'] } },
   ir: { name: 'IR', category: 'CONVOLUTION', symbol: '⌁', description: '불러온 임펄스 응답(IR)을 입력 신호에 적용합니다. 바이올린 바디 IR뿐 아니라 다른 악기·공간 IR도 사용할 수 있습니다.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
 };
+for (const [key, model] of Object.entries(NAM_MODELS)) EFFECTS[key] = {
+  name: model.name, category: 'NEURAL AMP', symbol: '▦',
+  description: `${model.note}. TONE3000의 공개 NAM 예제 캡처를 실시간으로 처리합니다. Input trim은 캡처에 들어가는 레벨이며 실제 앰프의 Gain 노브가 아닙니다. 캐비닛 소리는 뒤에 IR 블록을 연결하세요.`,
+  params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, -6, ' dB'] }
+};
 const CATEGORIES = [
   { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10'] },
   { id: 'drive', label: 'Drive', effects: ['drive', 'janray', 'ocd'] },
@@ -23,7 +38,7 @@ const CATEGORIES = [
   { id: 'mod', label: 'Mod', effects: ['chorus', 'tremolo'] },
   { id: 'saw', label: 'SAW', effects: ['saw'] },
   { id: 'synth', label: 'Synth', effects: ['synth'] },
-  { id: 'amp', label: 'Amp', effects: ['amp'] },
+  { id: 'amp', label: 'Amp', effects: ['amp', 'nam_ac10', 'nam_deluxe', 'nam_jcm'] },
   { id: 'ir', label: 'IR', effects: ['ir'] },
   { id: 'eq', label: 'EQ', effects: ['eq'] }
 ];
@@ -33,13 +48,17 @@ const presets = {
   ambient: ['compressor', 'drive', 'eq', 'chorus', 'delay', 'reverb', null, null],
   janray: ['janray', null, null, null, null, null, null, null],
   ocd: ['ocd', null, null, null, null, null, null, null],
+  nam_ac10: ['nam_ac10', 'ir', null, null, null, null, null, null],
+  nam_deluxe: ['nam_deluxe', 'ir', null, null, null, null, null, null],
+  nam_jcm: ['nam_jcm', 'ir', null, null, null, null, null, null],
   violin: ['compressor', 'saw', 'ir', 'eq', 'chorus', 'reverb', null, null]
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
 let ctx, sourceBus, inputAnalyser, outputAnalyser, master, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
-let units = [], chainGain = null, irBuffer = null, customIR = false, activeOutput = 'default', animationId;
+let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
+let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
 function notify(message, error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
@@ -94,6 +113,9 @@ function renderEditor() {
     return group;
   }));
   $('ir-panel').hidden = slot.type !== 'ir';
+  if (slot.type === 'ir') $('ir-library').value = irSelection;
+  $('nam-panel').hidden = !NAM_MODELS[slot.type];
+  if (NAM_MODELS[slot.type]) { $('nam-source').href = NAM_SOURCE; $('nam-status').textContent = namMessages.get(slot) || (ctx ? '모델을 불러오는 중…' : '오디오 시작을 누르면 모델을 불러옵니다.'); }
 }
 function renderLiveSwitch() {
   const saw = slots.find(s => s.type === 'saw'), ir = slots.find(s => s.type === 'ir');
@@ -141,9 +163,29 @@ document.addEventListener('keydown', (event) => {
 });
 $('preset').onchange = (event) => {
   const preset = presets[event.target.value]; if (!preset) return;
-  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; customIR = false; $('ir-name').textContent = '기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.';
-  render(); rebuild(); notify(event.target.value === 'violin' ? 'DI → SAW Synth → IR 체인을 불러왔습니다. 3번 IR 블록에서 바이올린 IR 파일을 불러오세요.' : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
+  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; irSelection = NAM_MODELS[event.target.value] ? 'celestion' : 'body';
+  $('ir-name').textContent = irSelection === 'celestion' ? 'Celestion 캐비닛 IR을 불러옵니다.' : '기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.';
+  render(); rebuild(); if (ctx && irSelection === 'celestion') void loadLibraryIR('celestion');
+  notify(event.target.value === 'violin' ? 'DI → SAW Synth → IR 체인을 불러왔습니다. 3번 IR 블록에서 바이올린 IR 파일을 불러오세요.' : NAM_MODELS[event.target.value] ? `${NAM_MODELS[event.target.value].name} → IR 체인을 불러왔습니다. Celestion 캐비닛 IR을 적용합니다.` : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
 };
+
+function namStatus(slot, message, error = false) {
+  namMessages.set(slot, message);
+  if (slots[selected] !== slot) return;
+  $('nam-status').textContent = message;
+  notify(message, error);
+}
+async function getNamEngine() {
+  if (!namEnginePromise) namEnginePromise = import(NAM_MODULE_URL).then(({ NamEngine }) => NamEngine.attach(ctx)).catch(error => { namEnginePromise = null; throw error; });
+  return namEnginePromise;
+}
+function getNamModel(type) {
+  if (!namModelPromises.has(type)) namModelPromises.set(type, fetch(NAM_MODEL_BASE + NAM_MODELS[type].file).then(response => {
+    if (!response.ok) throw new Error(`모델 요청 실패 (${response.status})`);
+    return response.text();
+  }).catch(error => { namModelPromises.delete(type); throw error; }));
+  return namModelPromises.get(type);
+}
 
 function impulse(seconds, decay, resonances = []) {
   const length = Math.floor(ctx.sampleRate * seconds), buffer = ctx.createBuffer(1, length, ctx.sampleRate), data = buffer.getChannelData(0);
@@ -167,6 +209,31 @@ function makeUnit(slot) {
   const input = ctx.createGain(), output = ctx.createGain(), p = slot.values, nodes = [input, output], oscillators = [];
   if (slot.bypass) { input.connect(output); return { input, output, nodes, oscillators }; }
   const add = (...items) => { nodes.push(...items); return items[0]; };
+  if (NAM_MODELS[slot.type]) {
+    const pre = add(ctx.createGain()), bass = add(ctx.createBiquadFilter()), mid = add(ctx.createBiquadFilter()), treble = add(ctx.createBiquadFilter()), post = add(ctx.createGain()), dry = add(ctx.createGain()), wet = add(ctx.createGain());
+    bass.type = 'lowshelf'; bass.frequency.value = 180; mid.type = 'peaking'; mid.frequency.value = 800; mid.Q.value = .7; treble.type = 'highshelf'; treble.frequency.value = 2800;
+    dry.gain.value = 1; wet.gain.value = 0; input.connect(dry).connect(output); input.connect(pre);
+    const update = () => {
+      pre.gain.setTargetAtTime(10 ** (p.input / 20), ctx.currentTime, .012);
+      bass.gain.setTargetAtTime(p.bass, ctx.currentTime, .012); mid.gain.setTargetAtTime(p.mid, ctx.currentTime, .012); treble.gain.setTargetAtTime(p.treble, ctx.currentTime, .012);
+      post.gain.setTargetAtTime(10 ** (p.output / 20), ctx.currentTime, .012);
+    }; update();
+    let disposed = false, namNode;
+    Promise.all([getNamEngine(), getNamModel(slot.type)]).then(async ([engine, model]) => {
+      if (disposed) return;
+      namNode = await engine.createNode();
+      if (disposed) { await namNode.dispose(); return; }
+      const info = await namNode.loadModel(model);
+      if (disposed) { await namNode.dispose(); return; }
+      pre.connect(namNode).connect(bass).connect(mid).connect(treble).connect(post).connect(wet).connect(output);
+      wet.gain.setTargetAtTime(1, ctx.currentTime, .015); dry.gain.setTargetAtTime(0, ctx.currentTime, .015);
+      const mismatch = info?.expectedSampleRate > 0 && Math.abs(info.expectedSampleRate - ctx.sampleRate) > 1;
+      namStatus(slot, mismatch ? `모델의 샘플레이트 ${info.expectedSampleRate} Hz와 오디오 엔진 ${ctx.sampleRate} Hz가 다릅니다.` : `${NAM_MODELS[slot.type].name} 로드 완료 · 캐비닛 IR은 별도 블록에서 선택하세요.`, mismatch);
+    }).catch(error => { if (namNode && !disposed) void namNode.dispose(); if (!disposed) namStatus(slot, `NAM 모델 로드 실패: ${error.message}`, true); });
+    const dispose = () => { disposed = true; if (namNode) void namNode.dispose(); };
+    namStatus(slot, `${NAM_MODELS[slot.type].name} 불러오는 중…`);
+    return { input, output, nodes, oscillators, update, dispose };
+  }
   switch (slot.type) {
     case 'compressor': { const c = add(ctx.createDynamicsCompressor()); c.threshold.value = p.threshold; c.ratio.value = p.ratio; c.knee.value = 20; c.attack.value = .004; c.release.value = .16; input.connect(c).connect(output); break; }
     case 'cp10': { const circuit = add(new AudioWorkletNode(ctx, 'cp10-compressor'));
@@ -207,11 +274,14 @@ function makeUnit(slot) {
       update(); return { input, output, nodes, oscillators, update };
     }
     case 'ir': { const convolver = add(ctx.createConvolver()), wet = add(ctx.createGain()), dry = add(ctx.createGain());
-      convolver.buffer = irBuffer || impulse(.65, 19, [[285, 1.3, 14], [465, .9, 22], [690, .7, 33], [1120, .35, 43], [1680, .2, 60]]);
-      wet.gain.value = p.mix / 100; dry.gain.value = 1 - p.mix / 100;
+      const demo = impulse(.65, 19, [[285, 1.3, 14], [465, .9, 22], [690, .7, 33], [1120, .35, 43], [1680, .2, 60]]);
+      convolver.buffer = irBuffer || (irSelection === 'body' ? demo : null);
+      const amount = () => convolver.buffer ? p.mix / 100 : 0;
+      wet.gain.value = amount(); dry.gain.value = 1 - amount();
       input.connect(convolver).connect(wet).connect(output); input.connect(dry).connect(output);
-      const update = () => { wet.gain.setTargetAtTime(p.mix / 100, ctx.currentTime, .012); dry.gain.setTargetAtTime(1 - p.mix / 100, ctx.currentTime, .012); };
-      update(); return { input, output, nodes, oscillators, update };
+      const update = () => { wet.gain.setTargetAtTime(amount(), ctx.currentTime, .012); dry.gain.setTargetAtTime(1 - amount(), ctx.currentTime, .012); };
+      const updateIR = () => { convolver.buffer = irBuffer || (irSelection === 'body' ? demo : null); update(); };
+      update(); return { input, output, nodes, oscillators, update, updateIR };
     }
   }
   return { input, output, nodes, oscillators };
@@ -230,7 +300,7 @@ function rebuild() {
     chainGain.gain.setTargetAtTime(1, now, .009);
     setTimeout(() => {
       inputAnalyser.disconnect(previousUnits.length ? previousUnits[0].input : previousGain);
-      for (const u of previousUnits) { for (const o of u.oscillators) { try { o.stop(); } catch {} } for (const node of u.nodes) node.disconnect(); }
+      for (const u of previousUnits) { u.dispose?.(); for (const o of u.oscillators) { try { o.stop(); } catch {} } for (const node of u.nodes) node.disconnect(); }
       previousGain.disconnect();
     }, 100);
   }
@@ -239,7 +309,7 @@ function rebuild() {
 async function startEngine() {
   if (ctx) { if (ctx.state !== 'running') await ctx.resume(); return; }
   if (!window.AudioContext) throw new Error('이 브라우저는 Web Audio를 지원하지 않습니다.');
-  ctx = new AudioContext({ latencyHint: 'interactive' });
+  ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
   try {
     await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js?v=waveforms-1', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
@@ -249,6 +319,7 @@ async function startEngine() {
     inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100;
     sourceBus.connect(inputAnalyser); master.connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
     rebuild(); await ctx.resume(); $('engine-state').textContent = 'ENGINE ON'; $('engine-state').classList.add('on'); $('power').textContent = '⏻ 오디오 실행 중';
+    if (CAB_IRS[irSelection]) void loadLibraryIR(irSelection);
     meterLoop(); notify('오디오 엔진이 켜졌습니다. 입력 장치를 연결하거나 녹음 파일을 선택하세요.');
   } catch (error) { await ctx.close(); ctx = null; throw error; }
 }
@@ -324,9 +395,25 @@ $('play-file').onclick = async () => {
 };
 $('stop-file').onclick = () => { stopFile(); notify('재생을 멈췄습니다.'); };
 $('loop-file').onchange = (e) => { if (fileSource) fileSource.loop = e.target.checked; };
+function refreshIRUnits() { for (const unit of units) unit.updateIR?.(); }
+async function loadLibraryIR(selection) {
+  try {
+    const response = await fetch(CAB_IR_BASE + CAB_IRS[selection]);
+    if (!response.ok) throw new Error(`IR 요청 실패 (${response.status})`);
+    const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+    if (selection !== irSelection) return;
+    irBuffer = buffer; refreshIRUnits(); $('ir-name').textContent = `적용됨: ${selection === 'celestion' ? 'Celestion' : 'Mesa'} 캐비닛 IR`;
+    notify('캐비닛 IR을 적용했습니다.');
+  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; refreshIRUnits(); notify(`캐비닛 IR을 불러오지 못했습니다: ${error.message}`, true); }
+}
+$('ir-library').onchange = async (event) => {
+  irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom();
+  if (CAB_IRS[irSelection]) { $('ir-name').textContent = '캐비닛 IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
+  else { $('ir-name').textContent = irSelection === 'none' ? 'IR을 사용하지 않습니다.' : '데모용 합성 바디 IR을 적용했습니다.'; notify($('ir-name').textContent); }
+};
 $('ir-file').onchange = async (e) => {
   const file = e.target.files?.[0]; if (!file || !await ensureEngine()) return;
-  try { irBuffer = await ctx.decodeAudioData(await file.arrayBuffer()); customIR = true; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; rebuild(); notify('사용자 IR을 적용했습니다.'); }
+  try { irBuffer = await ctx.decodeAudioData(await file.arrayBuffer()); irSelection = 'custom'; $('ir-library').value = 'custom'; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; refreshIRUnits(); notify('사용자 IR을 적용했습니다.'); }
   catch { notify('IR 파일을 읽을 수 없습니다.', true); }
 };
 function meterLoop() {
