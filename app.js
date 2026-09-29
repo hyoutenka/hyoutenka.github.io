@@ -367,7 +367,7 @@ async function routeOutput(id) {
   if (!await ensureEngine()) return;
   try {
     if (typeof ctx.setSinkId === 'function') {
-      await ctx.setSinkId(id);
+      await ctx.setSinkId(id === 'default' ? '' : id);
       if (outputRoute === 'media') { sinkAudio.pause(); sinkAudio.srcObject = null; outputBus.disconnect(); outputBus.connect(ctx.destination); }
       outputRoute = 'context';
     } else if (id === 'default') {
