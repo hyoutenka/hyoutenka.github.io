@@ -2,13 +2,19 @@ const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
 const NAM_MODELS = {
-  nam_ac10: { name: 'AC10 Capture', file: 'ac10.nam', note: '맑고 가벼운 브리티시 계열' },
-  nam_deluxe: { name: 'Deluxe Capture', file: 'deluxe.nam', note: '따뜻한 아메리칸 클린 계열' },
-  nam_jcm: { name: 'JCM Capture', file: 'jcm.nam', note: '강한 미드레인지의 브리티시 드라이브 계열' }
+  nam_ac10: { name: 'AC10 Capture', file: 'ac10.nam', ir: 'vox_ac30', note: '맑고 가벼운 브리티시 계열' },
+  nam_deluxe: { name: 'Deluxe Capture', file: 'deluxe.nam', ir: 'fender_deluxe', note: '따뜻한 아메리칸 클린 계열' },
+  nam_jcm: { name: 'JCM Capture', file: 'jcm.nam', ir: 'marshall_1960', note: '강한 미드레인지의 브리티시 드라이브 계열' }
 };
 const NAM_MODEL_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/models/';
 const CAB_IR_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/irs/';
-const CAB_IRS = { celestion: 'celestion.wav', mesa: 'mesa.wav' };
+const CAB_IRS = {
+  vox_ac30: { name: 'Vox AC30 2×12 · SM57', url: './irs/vox-ac30-2x12-sm57-mid.wav' },
+  fender_deluxe: { name: 'Fender Deluxe 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav' },
+  marshall_1960: { name: 'Marshall 1960 4×12 · SM57', url: './irs/marshall-1960-4x12-sm57-mid.wav' },
+  celestion: { name: 'Celestion 예제', url: CAB_IR_BASE + 'celestion.wav' },
+  mesa: { name: 'Mesa 예제', url: CAB_IR_BASE + 'mesa.wav' }
+};
 const EFFECTS = {
   compressor: { name: 'Compressor', category: 'DYNAMICS', symbol: '◫', description: '연주의 큰 소리와 작은 소리 차이를 줄입니다.', params: { threshold: ['Threshold', -40, 0, -22, 'dB'], ratio: ['Ratio', 1, 12, 4, ':1'] } },
   cp10: { name: 'CP10 Circuit', category: 'VCA COMPRESSOR', symbol: '▤', description: '첨부된 Ibanez CP10 회로 기반 근사: BA6110 가변 이득 증폭기와 정류·타이밍 회로를 모델링했습니다. Sustain은 압축 감도, Attack은 시작 속도, Level은 출력량을 조절합니다.', params: { sustain: ['Sustain', 0, 100, 55, '%'], attack: ['Attack', 0, 100, 40, '%'], level: ['Level', 0, 100, 65, '%'] } },
@@ -43,15 +49,9 @@ const CATEGORIES = [
   { id: 'eq', label: 'EQ', effects: ['eq'] }
 ];
 const presets = {
-  clean: ['compressor', 'eq', null, null, null, null, null, null],
-  cp10: ['cp10', null, null, null, null, null, null, null],
-  ambient: ['compressor', 'drive', 'eq', 'chorus', 'delay', 'reverb', null, null],
-  janray: ['janray', null, null, null, null, null, null, null],
-  ocd: ['ocd', null, null, null, null, null, null, null],
   nam_ac10: ['nam_ac10', 'ir', null, null, null, null, null, null],
   nam_deluxe: ['nam_deluxe', 'ir', null, null, null, null, null, null],
-  nam_jcm: ['nam_jcm', 'ir', null, null, null, null, null, null],
-  violin: ['compressor', 'saw', 'ir', 'eq', 'chorus', 'reverb', null, null]
+  nam_jcm: ['nam_jcm', 'ir', null, null, null, null, null, null]
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
@@ -124,6 +124,7 @@ function renderEditor() {
   }));
   $('ir-panel').hidden = slot.type !== 'ir';
   if (slot.type === 'ir') $('ir-library').value = irSelection;
+  $('ir-source').hidden = slot.type !== 'ir' || !['vox_ac30', 'fender_deluxe', 'marshall_1960'].includes(irSelection);
   $('nam-panel').hidden = !NAM_MODELS[slot.type];
   if (NAM_MODELS[slot.type]) { $('nam-source').href = NAM_SOURCE; $('nam-status').textContent = namMessages.get(slot) || (ctx ? '모델을 불러오는 중…' : '오디오 시작을 누르면 모델을 불러옵니다.'); }
 }
@@ -172,11 +173,11 @@ document.addEventListener('keydown', (event) => {
   if (!$('violin-switch').hidden) { event.preventDefault(); $('violin-switch').click(); }
 });
 $('preset').onchange = (event) => {
-  const preset = presets[event.target.value]; if (!preset) return;
-  slots = preset.map(newSlot); selected = event.target.value === 'violin' ? 1 : 0; pickerOpen = false; irBuffer = null; irSelection = NAM_MODELS[event.target.value] ? 'celestion' : 'body';
-  $('ir-name').textContent = irSelection === 'celestion' ? 'Celestion 캐비닛 IR을 불러옵니다.' : '기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.';
-  render(); rebuild(); if (ctx && irSelection === 'celestion') void loadLibraryIR('celestion');
-  notify(event.target.value === 'violin' ? 'DI → SAW Synth → IR 체인을 불러왔습니다. 3번 IR 블록에서 바이올린 IR 파일을 불러오세요.' : NAM_MODELS[event.target.value] ? `${NAM_MODELS[event.target.value].name} → IR 체인을 불러왔습니다. Celestion 캐비닛 IR을 적용합니다.` : `${event.target.selectedOptions[0].text} 체인을 불러왔습니다.`);
+  const key = event.target.value, preset = presets[key], model = NAM_MODELS[key]; if (!preset || !model) return;
+  slots = preset.map(newSlot); selected = 0; pickerOpen = false; irBuffer = null; irSelection = model.ir;
+  $('ir-name').textContent = `${CAB_IRS[irSelection].name} IR을 ${ctx ? '불러오는 중…' : '오디오 시작 시 불러옵니다.'}`;
+  render(); rebuild(); if (ctx) void loadLibraryIR(irSelection);
+  notify(`${model.name} → ${CAB_IRS[irSelection].name} IR 프리셋을 선택했습니다.`);
 };
 
 function namStatus(slot, message, error = false) {
@@ -420,22 +421,23 @@ $('loop-file').onchange = (e) => { if (fileSource) fileSource.loop = e.target.ch
 function refreshIRUnits() { for (const unit of units) unit.updateIR?.(); }
 async function loadLibraryIR(selection) {
   try {
-    const response = await fetch(CAB_IR_BASE + CAB_IRS[selection]);
+    const response = await fetch(new URL(CAB_IRS[selection].url, import.meta.url));
     if (!response.ok) throw new Error(`IR 요청 실패 (${response.status})`);
     const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
     if (selection !== irSelection) return;
-    irBuffer = buffer; refreshIRUnits(); $('ir-name').textContent = `적용됨: ${selection === 'celestion' ? 'Celestion' : 'Mesa'} 캐비닛 IR`;
+    irBuffer = buffer; refreshIRUnits(); $('ir-name').textContent = `적용됨: ${CAB_IRS[selection].name} IR`;
     notify('캐비닛 IR을 적용했습니다.');
-  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; refreshIRUnits(); notify(`캐비닛 IR을 불러오지 못했습니다: ${error.message}`, true); }
+  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; $('ir-source').hidden = true; refreshIRUnits(); notify(`캐비닛 IR을 불러오지 못했습니다: ${error.message}`, true); }
 }
 $('ir-library').onchange = async (event) => {
   irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom();
+  $('ir-source').hidden = !['vox_ac30', 'fender_deluxe', 'marshall_1960'].includes(irSelection);
   if (CAB_IRS[irSelection]) { $('ir-name').textContent = '캐비닛 IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
   else { $('ir-name').textContent = irSelection === 'none' ? 'IR을 사용하지 않습니다.' : '데모용 합성 바디 IR을 적용했습니다.'; notify($('ir-name').textContent); }
 };
 $('ir-file').onchange = async (e) => {
   const file = e.target.files?.[0]; if (!file || !await ensureEngine()) return;
-  try { irBuffer = await ctx.decodeAudioData(await file.arrayBuffer()); irSelection = 'custom'; $('ir-library').value = 'custom'; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; refreshIRUnits(); notify('사용자 IR을 적용했습니다.'); }
+  try { irBuffer = await ctx.decodeAudioData(await file.arrayBuffer()); irSelection = 'custom'; $('ir-library').value = 'custom'; $('ir-source').hidden = true; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; refreshIRUnits(); notify('사용자 IR을 적용했습니다.'); }
   catch { notify('IR 파일을 읽을 수 없습니다.', true); }
 };
 function meterLoop() {
