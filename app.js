@@ -241,7 +241,7 @@ async function startEngine() {
   if (!window.AudioContext) throw new Error('이 브라우저는 Web Audio를 지원하지 않습니다.');
   ctx = new AudioContext({ latencyHint: 'interactive' });
   try {
-    await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js?v=waveforms-1', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
