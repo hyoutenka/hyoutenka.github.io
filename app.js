@@ -35,7 +35,7 @@ const EFFECTS = {
 for (const [key, model] of Object.entries(NAM_MODELS)) EFFECTS[key] = {
   name: model.name, category: 'NEURAL AMP', symbol: '▦',
   description: `${model.note}. TONE3000의 공개 NAM 예제 캡처를 실시간으로 처리합니다. Input trim은 캡처에 들어가는 레벨이며 실제 앰프의 Gain 노브가 아닙니다. 캐비닛 소리는 뒤에 IR 블록을 연결하세요.`,
-  params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, -6, ' dB'] }
+  params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, 0, ' dB'] }
 };
 const CATEGORIES = [
   { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10'] },
@@ -57,7 +57,7 @@ const presets = {
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
-let ctx, sourceBus, inputAnalyser, outputAnalyser, master, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
+let ctx, sourceBus, inputGain, inputAnalyser, outputAnalyser, master, limiter, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
@@ -342,9 +342,13 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
-    sourceBus = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
-    inputAnalyser.fftSize = outputAnalyser.fftSize = 512; master.gain.value = +$('master-volume').value / 100; muteGain.gain.value = isMuted ? 0 : 1;
-    sourceBus.connect(inputAnalyser); master.connect(muteGain).connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
+    sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createDynamicsCompressor(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
+    inputAnalyser.fftSize = outputAnalyser.fftSize = 1024;
+    inputGain.gain.value = 10 ** (+$('input-trim').value / 20);
+    master.gain.value = +$('master-volume').value / 100; muteGain.gain.value = isMuted ? 0 : 1;
+    limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .002; limiter.release.value = .08;
+    sourceBus.connect(inputGain).connect(inputAnalyser);
+    master.connect(limiter).connect(muteGain).connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
     rebuild(); await ctx.resume(); $('engine-state').textContent = 'ENGINE ON'; $('engine-state').classList.add('on'); $('power').textContent = '⏻ 오디오 실행 중'; refreshLatencyInfo();
     if (CAB_IRS[irSelection]) void loadLibraryIR(irSelection);
     meterLoop(); notify('오디오 엔진이 켜졌습니다. 입력 장치를 연결하거나 녹음 파일을 선택하세요.');
@@ -406,6 +410,7 @@ $('choose-output').onclick = async () => {
     $('output-device').value = device.deviceId; await routeOutput(device.deviceId);
   } catch (e) { if (e.name !== 'NotAllowedError') notify(`장치를 선택할 수 없습니다: ${e.message}`, true); }
 };
+$('input-trim').oninput = (e) => { const value = +e.target.value; $('input-trim-value').textContent = `${value >= 0 ? '+' : ''}${value} dB`; if (inputGain) inputGain.gain.setTargetAtTime(10 ** (value / 20), ctx.currentTime, .012); };
 $('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); };
 $('mute').onclick = () => {
   isMuted = !isMuted;
@@ -459,8 +464,18 @@ $('ir-file').onchange = async (e) => {
   catch { notify('IR 파일을 읽을 수 없습니다.', true); }
 };
 function meterLoop() {
-  const data = new Uint8Array(512);
-  const update = (analyser, element) => { analyser.getByteTimeDomainData(data); let energy = 0; for (const x of data) energy += ((x - 128) / 128) ** 2; const rms = Math.sqrt(energy / data.length); element.style.width = `${Math.min(100, rms * 270)}%`; };
-  update(inputAnalyser, $('input-meter')); update(outputAnalyser, $('output-meter')); animationId = requestAnimationFrame(meterLoop);
+  const data = new Float32Array(1024);
+  const update = (analyser, bar, label) => {
+    analyser.getFloatTimeDomainData(data);
+    let energy = 0, peak = 0;
+    for (const sample of data) { energy += sample * sample; peak = Math.max(peak, Math.abs(sample)); }
+    const rms = Math.sqrt(energy / data.length), db = 20 * Math.log10(Math.max(rms, 1e-6));
+    bar.style.width = `${Math.max(0, Math.min(100, (db + 72) / 72 * 100))}%`;
+    bar.classList.toggle('clipping', peak >= .98);
+    label.textContent = db <= -72 ? '−∞ dBFS' : `${Math.round(db)} dBFS`;
+  };
+  update(inputAnalyser, $('input-meter'), $('input-level'));
+  update(outputAnalyser, $('output-meter'), $('output-level'));
+  animationId = requestAnimationFrame(meterLoop);
 }
 render();

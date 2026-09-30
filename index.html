@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=violin-ir-2">
+  <link rel="stylesheet" href="./styles.css?v=levels-1">
 </head>
 <body>
   <header class="topbar">
@@ -38,10 +38,11 @@
           <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
           <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
         </div>
+        <div class="level-row input-level-row"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
         <div class="divider"></div>
         <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
-        <div class="level-row"><div class="master-heading"><label for="master-volume">마스터 <output id="master-value">75%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="100" value="75"></div>
-        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div></div></div>
+        <div class="level-row"><div class="master-heading"><label for="master-volume">출력 레벨 <output id="master-value">100%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="200" value="100"></div>
+        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
         <p id="latency-status" class="latency-status">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
       </section>
 
@@ -55,6 +56,6 @@
     <footer>헤드폰 권장 · 오디오는 기기 안에서 처리됩니다. SAW 변환은 단음 입력에 맞춰졌으며, 실제 바이올린 음색은 불러온 IR과 연주 방식에 따라 달라집니다.</footer>
   </main>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=violin-ir-2"></script>
+  <script type="module" src="./app.js?v=levels-1"></script>
 </body>
 </html>
