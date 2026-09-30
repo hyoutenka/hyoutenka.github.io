@@ -19,17 +19,17 @@
 
 각 슬롯의 이펙트 선택 화면은 **Compressor / Drive / Delay / Reverb / Mod / SAW / Synth / Amp / IR / EQ** 대분류로 나뉩니다. Compressor에는 기본 Compressor와 Ibanez CP10 모델, Drive에는 기본 Overdrive와 Jan Ray 및 OCD 모델이 있습니다. Mod에는 Chorus와 Tremolo가 있습니다. SAW는 바이올린 프리셋용 톱니파 추적기이며, Synth는 Sine/Triangle/Square를 선택하는 별도의 단음 추적 신시사이저입니다. Amp는 간단한 프리앰프 소프트 클리핑 모델이고, 스피커 응답은 필요하면 IR 블록을 뒤에 연결합니다.
 
-Amp에는 기존 기본 Amp 외에 **AC10 / Deluxe / JCM Capture**가 있습니다. 이 세 모델은 [TONE3000의 NAM WebAssembly 예제 저장소](https://github.com/tone-3000/neural-amp-modeler-wasm)에 공개된 `.nam` 파일을 해당 저장소의 고정 커밋에서 브라우저로 불러옵니다. 브라우저용 NAM 런타임 `neural-amp-modeler-wasm@2.0.1`은 버전이 고정된 jsDelivr 자산에서 가져오며, 서버 측에서 오디오를 처리하지 않습니다. 모델 자체의 캡처 설정은 고정되어 있고 Input trim은 실제 앰프 Gain 노브와 다릅니다.
+Amp에는 기존 기본 Amp 외에 **AC10 / Deluxe Reverb / JCM Capture**가 있습니다. 이 세 모델은 [TONE3000의 NAM WebAssembly 예제 저장소](https://github.com/tone-3000/neural-amp-modeler-wasm)에 공개된 `.nam` 파일을 해당 저장소의 고정 커밋에서 브라우저로 불러옵니다. 이 저장소의 `deluxe.nam`은 **Fender Deluxe Reverb**로 표기된 모델이며 Tweed 5E3 앰프 캡처는 아닙니다. 브라우저용 NAM 런타임 `neural-amp-modeler-wasm@2.0.1`은 버전이 고정된 jsDelivr 자산에서 가져오며, 서버 측에서 오디오를 처리하지 않습니다. 모델 자체의 캡처 설정은 고정되어 있고 Input trim은 실제 앰프 Gain 노브와 다릅니다.
 
 프리셋 목록은 다음 세 앰프와 캐비닛 조합만 제공합니다. 각 프리셋은 **1번 앰프 → 2번 IR**이며 나머지 여섯 슬롯은 비어 있습니다. 페달과 바이올린용 체인은 노드 선택으로 직접 만들 수 있습니다.
 
 | 프리셋 | 자동 선택되는 IR |
 | --- | --- |
 | AC10 | Vox AC30 2×12 · SM57 중간 거리 |
-| Deluxe | Fender Deluxe 1×12 · SM57 중간 거리 (CabImpulse Tweed 자료) |
+| Deluxe Reverb | Fender Tweed 1×12 · SM57 중간 거리 |
 | JCM | Marshall 1960 4×12 · SM57 중간 거리 |
 
-세 캐비닛 WAV는 [CabImpulse](https://github.com/DCisHurt/CabImpulse)의 내장 48 kHz 녹음 자료에서 추출했습니다. 원저작자 Roger Chen의 [MIT 라이선스](irs/LICENSE-CabImpulse.txt)를 함께 보관합니다. 앰프 캡처와 캐비닛 IR은 각각 별도 출처이며, AC10의 캐비닛은 같은 Vox 계열의 AC30 2×12로 골랐습니다. 실제 캡처 당시 사용한 캐비닛과 동일하다고 보장하는 매칭은 아닙니다. IR 노드에서 다른 IR이나 사용자가 가진 WAV 파일로 교체할 수도 있습니다. 외부 NAM 자산을 불러오지 못할 때 NAM 블록은 원음을 통과시키고 오류를 표시합니다. 브라우저 오디오 엔진은 모델의 기본 샘플레이트에 맞춰 48 kHz로 엽니다.
+세 캐비닛 WAV는 [CabImpulse](https://github.com/DCisHurt/CabImpulse)의 내장 48 kHz 녹음 자료에서 추출했습니다. 원저작자 Roger Chen의 [MIT 라이선스](irs/LICENSE-CabImpulse.txt)를 함께 보관합니다. 앰프 캡처와 캐비닛 IR은 각각 별도 출처이며, AC10의 캐비닛은 같은 Vox 계열의 AC30 2×12로 골랐습니다. Fender 프리셋도 Deluxe Reverb 앰프에 Tweed 캐비닛을 조합한 것이지 Tweed 앰프 자체가 아닙니다. 실제 캡처 당시 사용한 캐비닛과 동일하다고 보장하는 매칭은 아닙니다. IR 노드에서 다른 IR이나 사용자가 가진 WAV 파일로 교체할 수도 있습니다. 외부 NAM 자산을 불러오지 못할 때 NAM 블록은 원음을 통과시키고 오류를 표시합니다. 브라우저 오디오 엔진은 모델의 기본 샘플레이트에 맞춰 48 kHz로 엽니다.
 
 `Jan Ray circuit` 프리셋은 사용자가 제공한 **Vemuram Jan Ray V1.0 회로도**를 토대로 만든 별도의 드라이브 블록입니다. 47 nF 입력 커플링과 1 MΩ 바이어스 저항, LM4558 비반전 증폭기의 가변 피드백 저항과 서로 반대 방향의 1N4148 직렬 다이오드 쌍, 47 pF 피드백 커패시터, 10 kΩ Treble·1.2 kΩ·47 nF 필터, 후단 약 2배 증폭과 1 µF 출력 커플링을 근사합니다. Gain, Bass, Treble, 내부 Trim, Volume을 조절할 수 있습니다. Bass/Trim의 복잡한 주파수 의존 피드백망은 단순화한 저역 차단과 입력 저항으로 근사했으며, 전원회로와 부품 편차 및 실제 기타 픽업 임피던스까지 SPICE 수준으로 재현한 모델은 아닙니다. 브라우저 입력 레벨은 실물 회로의 전압으로 보정되지 않아 실제 페달과 같은 노브 위치에서 동일한 음색을 보장하지 않습니다.
 

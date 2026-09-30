@@ -3,14 +3,14 @@ const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
 const NAM_MODELS = {
   nam_ac10: { name: 'AC10 Capture', file: 'ac10.nam', ir: 'vox_ac30', note: '맑고 가벼운 브리티시 계열' },
-  nam_deluxe: { name: 'Deluxe Capture', file: 'deluxe.nam', ir: 'fender_deluxe', note: '따뜻한 아메리칸 클린 계열' },
+  nam_deluxe: { name: 'Deluxe Reverb Capture', file: 'deluxe.nam', ir: 'fender_deluxe', note: '따뜻한 아메리칸 클린 계열' },
   nam_jcm: { name: 'JCM Capture', file: 'jcm.nam', ir: 'marshall_1960', note: '강한 미드레인지의 브리티시 드라이브 계열' }
 };
 const NAM_MODEL_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/models/';
 const CAB_IR_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/irs/';
 const CAB_IRS = {
   vox_ac30: { name: 'Vox AC30 2×12 · SM57', url: './irs/vox-ac30-2x12-sm57-mid.wav' },
-  fender_deluxe: { name: 'Fender Deluxe 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav' },
+  fender_deluxe: { name: 'Fender Tweed 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav' },
   marshall_1960: { name: 'Marshall 1960 4×12 · SM57', url: './irs/marshall-1960-4x12-sm57-mid.wav' },
   violin_treble: { name: 'Violin Octet · Treble (Gras 스테레오)', url: 'https://raw.githubusercontent.com/AlexHarker/OctetViolins/f4f4c062fe0374a71272ebab252f6ecb5e54b440/resources/IRs/Gras_Pair_01_Treble.wav' },
   celestion: { name: 'Celestion 예제', url: CAB_IR_BASE + 'celestion.wav' },
