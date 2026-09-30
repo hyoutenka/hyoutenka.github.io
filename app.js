@@ -35,7 +35,7 @@ const EFFECTS = {
 for (const [key, model] of Object.entries(NAM_MODELS)) EFFECTS[key] = {
   name: model.name, category: 'NEURAL AMP', symbol: '▦',
   description: `${model.note}. TONE3000의 공개 NAM 예제 캡처를 실시간으로 처리합니다. Input trim은 캡처에 들어가는 레벨이며 실제 앰프의 Gain 노브가 아닙니다. 캐비닛 소리는 뒤에 IR 블록을 연결하세요.`,
-  params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, 0, ' dB'] }
+  params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, 6, ' dB'] }
 };
 const CATEGORIES = [
   { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10'] },
