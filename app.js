@@ -12,6 +12,7 @@ const CAB_IRS = {
   vox_ac30: { name: 'Vox AC30 2×12 · SM57', url: './irs/vox-ac30-2x12-sm57-mid.wav' },
   fender_deluxe: { name: 'Fender Deluxe 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav' },
   marshall_1960: { name: 'Marshall 1960 4×12 · SM57', url: './irs/marshall-1960-4x12-sm57-mid.wav' },
+  violin_treble: { name: 'Violin Octet · Treble (Gras 스테레오)', url: 'https://raw.githubusercontent.com/AlexHarker/OctetViolins/f4f4c062fe0374a71272ebab252f6ecb5e54b440/resources/IRs/Gras_Pair_01_Treble.wav' },
   celestion: { name: 'Celestion 예제', url: CAB_IR_BASE + 'celestion.wav' },
   mesa: { name: 'Mesa 예제', url: CAB_IR_BASE + 'mesa.wav' }
 };
@@ -124,7 +125,14 @@ function renderEditor() {
   }));
   $('ir-panel').hidden = slot.type !== 'ir';
   if (slot.type === 'ir') $('ir-library').value = irSelection;
-  $('ir-source').hidden = slot.type !== 'ir' || !['vox_ac30', 'fender_deluxe', 'marshall_1960'].includes(irSelection);
+  $('ir-source').hidden = slot.type !== 'ir' || !['vox_ac30', 'fender_deluxe', 'marshall_1960', 'violin_treble'].includes(irSelection);
+  if (irSelection === 'violin_treble') {
+    $('ir-source').href = 'https://github.com/AlexHarker/OctetViolins';
+    $('ir-source').textContent = '바이올린 IR 출처 · OctetViolins (BSD 3-Clause)';
+  } else {
+    $('ir-source').href = 'https://github.com/DCisHurt/CabImpulse';
+    $('ir-source').textContent = '캐비닛 IR 출처 · CabImpulse (MIT)';
+  }
   $('nam-panel').hidden = !NAM_MODELS[slot.type];
   if (NAM_MODELS[slot.type]) { $('nam-source').href = NAM_SOURCE; $('nam-status').textContent = namMessages.get(slot) || (ctx ? '모델을 불러오는 중…' : '오디오 시작을 누르면 모델을 불러옵니다.'); }
 }
@@ -136,7 +144,15 @@ function renderLiveSwitch() {
   button.firstChild.textContent = active ? 'VIOLIN ON ' : 'VIOLIN OFF ';
 }
 function render() { renderChain(); renderEditor(); renderLiveSwitch(); }
-function setEffect(type) { slots[selected] = newSlot(type); pickerOpen = false; markCustom(); render(); rebuild(); }
+function setEffect(type) {
+  slots[selected] = newSlot(type);
+  if ((type === 'ir' && slots.some(slot => slot.type === 'saw')) || (type === 'saw' && slots.some(slot => slot.type === 'ir') && irSelection === 'body')) {
+    irSelection = 'violin_treble'; irBuffer = null;
+    $('ir-name').textContent = `${CAB_IRS[irSelection].name} IR을 ${ctx ? '불러오는 중…' : '오디오 시작 시 불러옵니다.'}`;
+    if (ctx) void loadLibraryIR(irSelection);
+  }
+  pickerOpen = false; markCustom(); render(); rebuild();
+}
 function renderPicker() {
   if (!$('category-list').children.length) $('category-list').replaceChildren(...CATEGORIES.map(category => {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'category-option';
@@ -426,13 +442,15 @@ async function loadLibraryIR(selection) {
     const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
     if (selection !== irSelection) return;
     irBuffer = buffer; refreshIRUnits(); $('ir-name').textContent = `적용됨: ${CAB_IRS[selection].name} IR`;
-    notify('캐비닛 IR을 적용했습니다.');
-  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; $('ir-source').hidden = true; refreshIRUnits(); notify(`캐비닛 IR을 불러오지 못했습니다: ${error.message}`, true); }
+    notify('IR을 적용했습니다.');
+  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; $('ir-source').hidden = true; refreshIRUnits(); notify(`IR을 불러오지 못했습니다: ${error.message}`, true); }
 }
 $('ir-library').onchange = async (event) => {
   irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom();
-  $('ir-source').hidden = !['vox_ac30', 'fender_deluxe', 'marshall_1960'].includes(irSelection);
-  if (CAB_IRS[irSelection]) { $('ir-name').textContent = '캐비닛 IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
+  $('ir-source').hidden = !['vox_ac30', 'fender_deluxe', 'marshall_1960', 'violin_treble'].includes(irSelection);
+  $('ir-source').href = irSelection === 'violin_treble' ? 'https://github.com/AlexHarker/OctetViolins' : 'https://github.com/DCisHurt/CabImpulse';
+  $('ir-source').textContent = irSelection === 'violin_treble' ? '바이올린 IR 출처 · OctetViolins (BSD 3-Clause)' : '캐비닛 IR 출처 · CabImpulse (MIT)';
+  if (CAB_IRS[irSelection]) { $('ir-name').textContent = 'IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
   else { $('ir-name').textContent = irSelection === 'none' ? 'IR을 사용하지 않습니다.' : '데모용 합성 바디 IR을 적용했습니다.'; notify($('ir-name').textContent); }
 };
 $('ir-file').onchange = async (e) => {

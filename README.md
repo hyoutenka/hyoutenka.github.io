@@ -13,7 +13,9 @@
 
 입출력의 **뮤트 OFF/ON** 버튼은 오디오 체인을 유지한 채 최종 출력만 즉시 음소거합니다. 마스터 볼륨은 별도로 보존됩니다. 입출력 미터 아래에는 브라우저가 제공하는 입력·엔진·출력 지연 추정치를 표시합니다. 이 값에는 인터페이스 드라이버나 외부 믹서·모니터링 경로의 모든 지연이 포함되지는 않으므로 실제 연주 왕복 지연과 같다고 볼 수 없습니다. 라이브 입력은 브라우저에 10ms 입력 지연을 *요청*하며, 브라우저나 장치가 이를 보장하지는 않습니다. 출력 장치 선택 시 지원 브라우저에서는 `AudioContext.setSinkId()`를 사용해 오디오 엔진에서 장치로 직접 보내고, 지원되지 않을 때만 미디어 스트림 경로를 사용합니다.
 
-바이올린 음색을 시험하려면 노드에서 **Compressor → SAW Synth → IR → EQ → Chorus → Reverb**를 직접 배치하고 IR 블록에서 바이올린 바디 IR을 불러오세요. SAW Synth는 단음 입력의 기본 주파수를 추적해 SAW를 합성하며, **Attack**으로 소리가 시작되는 속도를 조절합니다. 범용 IR 블록에는 다른 악기·공간 IR도 사용할 수 있습니다. 파일을 불러오기 전에는 데모용 합성 바디 IR이 적용됩니다. V 키 또는 VIOLIN 버튼으로 SAW와 IR을 함께 켜고 끕니다. 기본 합성 IR은 실제 바이올린에서 측정한 파일이 아니므로 동일한 음색을 보장하지 않습니다. 화음·잡음·급격한 음 전환에서는 피치 인식이 불안정할 수 있습니다. 오디오 파일과 IR은 브라우저 안에서만 처리하며 업로드하지 않습니다.
+바이올린 음색을 시험하려면 노드에서 **Compressor → SAW Synth → IR → EQ → Chorus → Reverb**를 직접 배치하세요. SAW Synth는 단음 입력의 기본 주파수를 추적해 SAW를 합성하며, **Attack**으로 소리가 시작되는 속도를 조절합니다. SAW와 IR을 함께 배치하면 실제 바이올린 계열의 몸통 공명을 측정한 **Violin Octet · Treble (Gras 스테레오)** IR이 자동 선택됩니다. IR 블록에서 캐비닛·다른 악기 IR이나 사용자 WAV로 바꿀 수 있습니다. V 키 또는 VIOLIN 버튼으로 SAW와 IR을 함께 켜고 끕니다. 이 IR은 바이올린의 공명 특성만 적용하며 활 마찰음이나 연주 표현까지 만들지는 않습니다. 화음·잡음·급격한 음 전환에서는 피치 인식이 불안정할 수 있습니다. 오디오 파일과 IR은 브라우저 안에서만 처리하며 업로드하지 않습니다.
+
+바이올린 IR은 [Alex Harker의 OctetViolins](https://github.com/AlexHarker/OctetViolins) `resources/IRs/Gras_Pair_01_Treble.wav`를 고정 커밋에서 불러옵니다. 실제 Violin Octet 악기의 응답을 사용한 연구용 플러그인의 자료이며 [BSD 3-Clause 라이선스](irs/LICENSE-OctetViolins.txt)를 함께 표시합니다. 외부 파일을 불러오지 못하면 IR 블록은 드라이 신호를 통과시키고 오류를 표시합니다.
 
 각 슬롯의 이펙트 선택 화면은 **Compressor / Drive / Delay / Reverb / Mod / SAW / Synth / Amp / IR / EQ** 대분류로 나뉩니다. Compressor에는 기본 Compressor와 Ibanez CP10 모델, Drive에는 기본 Overdrive와 Jan Ray 및 OCD 모델이 있습니다. Mod에는 Chorus와 Tremolo가 있습니다. SAW는 바이올린 프리셋용 톱니파 추적기이며, Synth는 Sine/Triangle/Square를 선택하는 별도의 단음 추적 신시사이저입니다. Amp는 간단한 프리앰프 소프트 클리핑 모델이고, 스피커 응답은 필요하면 IR 블록을 뒤에 연결합니다.
 
@@ -24,7 +26,7 @@ Amp에는 기존 기본 Amp 외에 **AC10 / Deluxe / JCM Capture**가 있습니�
 | 프리셋 | 자동 선택되는 IR |
 | --- | --- |
 | AC10 | Vox AC30 2×12 · SM57 중간 거리 |
-| Deluxe | Fender Deluxe 1×12 · SM57 중간 거리 |
+| Deluxe | Fender Deluxe 1×12 · SM57 중간 거리 (CabImpulse Tweed 자료) |
 | JCM | Marshall 1960 4×12 · SM57 중간 거리 |
 
 세 캐비닛 WAV는 [CabImpulse](https://github.com/DCisHurt/CabImpulse)의 내장 48 kHz 녹음 자료에서 추출했습니다. 원저작자 Roger Chen의 [MIT 라이선스](irs/LICENSE-CabImpulse.txt)를 함께 보관합니다. 앰프 캡처와 캐비닛 IR은 각각 별도 출처이며, AC10의 캐비닛은 같은 Vox 계열의 AC30 2×12로 골랐습니다. 실제 캡처 당시 사용한 캐비닛과 동일하다고 보장하는 매칭은 아닙니다. IR 노드에서 다른 IR이나 사용자가 가진 WAV 파일로 교체할 수도 있습니다. 외부 NAM 자산을 불러오지 못할 때 NAM 블록은 원음을 통과시키고 오류를 표시합니다. 브라우저 오디오 엔진은 모델의 기본 샘플레이트에 맞춰 48 kHz로 엽니다.
