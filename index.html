@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=levels-2">
+  <link rel="stylesheet" href="./styles.css?v=practice-1">
 </head>
 <body>
   <header class="topbar">
@@ -52,10 +52,32 @@
         <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="nam-panel" hidden><p id="nam-status" class="help" role="status">오디오 시작을 누르면 모델을 불러옵니다.</p><a id="nam-source" href="https://github.com/tone-3000/neural-amp-modeler-wasm" target="_blank" rel="noopener noreferrer">캡처 출처 · TONE3000 NAM 예제</a></div><div id="ir-panel" hidden><label for="ir-library">IR 선택</label><select id="ir-library"><option value="body">데모 합성 바디</option><option value="violin_treble">Violin Octet · Treble (Gras 스테레오)</option><option value="vox_ac30">Vox AC30 2×12 · SM57</option><option value="fender_deluxe">Fender Tweed 1×12 · SM57</option><option value="marshall_1960">Marshall 1960 4×12 · SM57</option><option value="celestion">Celestion 예제</option><option value="mesa">Mesa 예제</option><option value="none">IR 없음</option><option value="custom" hidden>사용자 IR</option></select><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p><a id="ir-source" href="https://github.com/DCisHurt/CabImpulse" target="_blank" rel="noopener noreferrer" hidden>캐비닛 IR 출처 · CabImpulse (MIT)</a></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
       </section>
     </div>
+    <section class="practice" aria-labelledby="practice-title">
+      <div class="practice-heading"><div><p class="eyebrow">PRACTICE / 02</p><h2 id="practice-title">연습실</h2><p class="muted">영상을 틀고 기타 체인의 소리를 들으며 연습하세요.</p></div><span class="practice-caption">VIDEO · TEMPO</span></div>
+      <div class="practice-grid">
+        <section class="card viewer-card" aria-labelledby="viewer-title">
+          <div class="card-head"><div><p class="eyebrow">REFERENCE PLAYER</p><h3 id="viewer-title">영상 뷰어</h3></div><span class="pill">PLAY ALONG</span></div>
+          <div class="source-tabs" role="group" aria-label="영상 가져오기"><button id="tab-video-url" class="active" type="button" aria-pressed="true">링크</button><button id="tab-video-file" type="button" aria-pressed="false">내 영상 파일</button></div>
+          <div id="video-url-panel" class="practice-source"><label for="video-url">유튜브 또는 직접 재생 가능한 영상 주소</label><div class="viewer-input"><input id="video-url" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="url"><button id="load-video-url" type="button">영상 불러오기</button></div></div>
+          <div id="video-file-panel" class="practice-source" hidden><label for="video-file">컴퓨터의 영상 파일</label><input id="video-file" type="file" accept="video/*,.mp4,.webm,.ogv,.m4v,.mov"><p class="help">파일은 이 브라우저에서 재생하며 업로드하지 않습니다.</p></div>
+          <p id="video-status" class="viewer-status" role="status">링크를 붙여 넣거나 영상 파일을 선택하세요.</p>
+          <div class="video-stage" id="video-stage"><div id="video-placeholder" class="video-placeholder"><span class="video-placeholder-icon" aria-hidden="true">▷</span><strong>연습할 영상을 준비하세요</strong><span>영상은 직접 재생 버튼을 누르면 시작합니다.</span></div><iframe id="youtube-player" title="유튜브 연습 영상" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen hidden></iframe><video id="practice-video" controls playsinline preload="metadata" hidden></video></div>
+          <p class="practice-footnote">영상 소리는 브라우저의 기본 출력으로 재생됩니다. 기타와 함께 들으려면 두 출력이 같은 장치를 사용하도록 설정하세요. 일부 영상은 사이트 안에서 재생이 제한될 수 있습니다.</p>
+        </section>
+        <section class="card metronome-card" aria-labelledby="metronome-title">
+          <div class="card-head"><div><p class="eyebrow">RHYTHM GUIDE</p><h3 id="metronome-title">메트로놈</h3></div><span id="metro-state" class="pill">STOPPED</span></div>
+          <div class="tempo-display"><strong id="tempo-display">100</strong><span>BPM</span></div>
+          <div class="beat-lights" id="beat-lights" aria-label="박자 표시"><span></span><span></span><span></span><span></span></div>
+          <div class="metro-controls"><label for="metro-bpm">템포 <span>40–240 BPM</span></label><input id="metro-bpm" type="range" min="40" max="240" value="100" step="1"><div class="metro-fields"><label for="metro-bpm-number">BPM <input id="metro-bpm-number" type="number" min="40" max="240" value="100" step="1"></label><label for="metro-beats">한 마디 <select id="metro-beats"><option value="2">2박</option><option value="3">3박</option><option value="4" selected>4박</option><option value="6">6박</option></select></label></div><label for="metro-volume">클릭 음량 <output id="metro-volume-value">45%</output></label><input id="metro-volume" type="range" min="0" max="100" value="45"></div>
+          <div class="metro-actions"><button id="metro-toggle" class="power" type="button" aria-pressed="false">▶ 시작</button><button id="metro-tap" type="button">탭 템포</button></div>
+          <p id="metro-message" class="practice-footnote" role="status">첫 박이 높은 소리로 들립니다. 탭 템포는 여러 번 눌러 맞추세요.</p>
+        </section>
+      </div>
+    </section>
     <div class="notice" role="status" id="notice">오디오 시작을 누르면 브라우저의 오디오 엔진이 켜집니다.</div>
     <footer>헤드폰 권장 · 오디오는 기기 안에서 처리됩니다. SAW 변환은 단음 입력에 맞춰졌으며, 실제 바이올린 음색은 불러온 IR과 연주 방식에 따라 달라집니다.</footer>
   </main>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=levels-2"></script>
+  <script type="module" src="./app.js?v=practice-1"></script>
 </body>
 </html>

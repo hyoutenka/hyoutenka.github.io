@@ -478,4 +478,178 @@ function meterLoop() {
   update(outputAnalyser, $('output-meter'), $('output-level'));
   animationId = requestAnimationFrame(meterLoop);
 }
+// The practice player uses native media controls; its audio is independent of the guitar graph.
+let practiceObjectUrl = null;
+const practiceVideo = $('practice-video'), youtubePlayer = $('youtube-player');
+function videoStatus(message, error = false) {
+  $('video-status').textContent = message;
+  $('video-status').classList.toggle('error', error);
+}
+function chooseVideoSource(source) {
+  const isUrl = source === 'url';
+  $('tab-video-url').classList.toggle('active', isUrl);
+  $('tab-video-file').classList.toggle('active', !isUrl);
+  $('tab-video-url').setAttribute('aria-pressed', String(isUrl));
+  $('tab-video-file').setAttribute('aria-pressed', String(!isUrl));
+  $('video-url-panel').hidden = !isUrl;
+  $('video-file-panel').hidden = isUrl;
+}
+$('tab-video-url').onclick = () => chooseVideoSource('url');
+$('tab-video-file').onclick = () => chooseVideoSource('file');
+function clearPracticeMedia() {
+  practiceVideo.pause();
+  practiceVideo.removeAttribute('src');
+  practiceVideo.load();
+  youtubePlayer.removeAttribute('src');
+  if (practiceObjectUrl) URL.revokeObjectURL(practiceObjectUrl);
+  practiceObjectUrl = null;
+}
+function showPracticeMedia(kind) {
+  $('video-placeholder').hidden = true;
+  practiceVideo.hidden = kind !== 'video';
+  youtubePlayer.hidden = kind !== 'youtube';
+}
+function youtubeId(url) {
+  const host = url.hostname.toLowerCase();
+  const pieces = url.pathname.split('/').filter(Boolean);
+  let id;
+  if (host === 'youtu.be' || host === 'www.youtu.be') id = pieces[0];
+  else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) {
+    id = pieces[0] === 'watch' ? url.searchParams.get('v') : ['shorts', 'embed', 'live'].includes(pieces[0]) ? pieces[1] : null;
+  } else return null;
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id || '')) throw new Error('유튜브 영상 링크에서 영상 ID를 찾을 수 없습니다.');
+  return id;
+}
+function youtubeStart(url) {
+  const raw = url.searchParams.get('start') || url.searchParams.get('t') || url.hash.replace(/^#t=?/, '');
+  if (!raw) return 0;
+  if (/^\d+$/.test(raw)) return Math.min(86400, +raw);
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(raw);
+  return match ? Math.min(86400, (+match[1] || 0) * 3600 + (+match[2] || 0) * 60 + (+match[3] || 0)) : 0;
+}
+function loadPracticeUrl() {
+  try {
+    const url = new URL($('video-url').value.trim());
+    if (url.protocol !== 'https:') throw new Error('https://로 시작하는 영상 주소를 입력하세요.');
+    const id = youtubeId(url);
+    clearPracticeMedia();
+    if (id) {
+      const embed = new URL(`https://www.youtube.com/embed/${id}`);
+      const start = youtubeStart(url);
+      if (start) embed.searchParams.set('start', String(start));
+      youtubePlayer.src = embed.href;
+      showPracticeMedia('youtube');
+      videoStatus('유튜브 영상을 불러왔습니다. 플레이어에서 재생하세요.');
+    } else {
+      practiceVideo.src = url.href;
+      showPracticeMedia('video');
+      videoStatus('영상 파일을 확인하고 있습니다…');
+    }
+  } catch (error) { videoStatus(error.message || '주소를 확인하세요.', true); }
+}
+$('load-video-url').onclick = loadPracticeUrl;
+$('video-url').addEventListener('keydown', event => { if (event.key === 'Enter') loadPracticeUrl(); });
+$('video-file').onchange = event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('video/') && !/\.(mp4|webm|ogv|ogg|m4v|mov)$/i.test(file.name)) {
+    videoStatus('영상 파일을 선택하세요.', true); return;
+  }
+  clearPracticeMedia();
+  practiceObjectUrl = URL.createObjectURL(file);
+  practiceVideo.src = practiceObjectUrl;
+  showPracticeMedia('video');
+  videoStatus(`${file.name} · 재생 버튼을 누르세요.`);
+};
+practiceVideo.addEventListener('error', () => {
+  if (practiceVideo.src) videoStatus('영상을 재생할 수 없습니다. 파일 형식·코덱 또는 외부 서버의 직접 재생 허용 여부를 확인하세요.', true);
+});
+
+// Schedule clicks against AudioContext time so UI timer jitter does not move the beat.
+let metroTimer = null, nextMetroTime = 0, beatIndex = 0, metroGeneration = 0;
+const metroOscillators = new Set(), metroVisualTimers = new Set();
+const beats = $('beat-lights');
+function renderBeats() {
+  const count = +$('metro-beats').value;
+  beats.replaceChildren(...Array.from({ length: count }, () => document.createElement('span')));
+  beats.setAttribute('aria-label', `${count}박 표시`);
+}
+function clearBeatLights() { for (const light of beats.children) light.classList.remove('active'); }
+function scheduleMetroClick(at, index, generation) {
+  const oscillator = ctx.createOscillator(), envelope = ctx.createGain();
+  const volume = +$('metro-volume').value / 100;
+  oscillator.type = 'sine';
+  oscillator.frequency.value = index === 0 ? 1260 : 880;
+  envelope.gain.setValueAtTime(.0001, at);
+  envelope.gain.exponentialRampToValueAtTime(Math.max(.0001, volume * (index === 0 ? .19 : .13)), at + .004);
+  envelope.gain.exponentialRampToValueAtTime(.0001, at + .055);
+  oscillator.connect(envelope).connect(muteGain);
+  oscillator.onended = () => { metroOscillators.delete(oscillator); oscillator.disconnect(); envelope.disconnect(); };
+  metroOscillators.add(oscillator);
+  oscillator.start(at); oscillator.stop(at + .06);
+  const timer = setTimeout(() => {
+    metroVisualTimers.delete(timer);
+    if (generation !== metroGeneration) return;
+    clearBeatLights();
+    beats.children[index]?.classList.add('active');
+  }, Math.max(0, (at - ctx.currentTime) * 1000));
+  metroVisualTimers.add(timer);
+}
+function metroScheduler() {
+  if (!ctx || ctx.state !== 'running') return;
+  if (nextMetroTime < ctx.currentTime - .15) { nextMetroTime = ctx.currentTime + .035; beatIndex = 0; }
+  while (nextMetroTime < ctx.currentTime + .11) {
+    scheduleMetroClick(nextMetroTime, beatIndex, metroGeneration);
+    nextMetroTime += 60 / +$('metro-bpm').value;
+    beatIndex = (beatIndex + 1) % +$('metro-beats').value;
+  }
+}
+function stopMetroSchedule() {
+  clearInterval(metroTimer); metroTimer = null; metroGeneration++;
+  for (const timer of metroVisualTimers) clearTimeout(timer);
+  metroVisualTimers.clear();
+  for (const oscillator of metroOscillators) { try { oscillator.stop(); } catch {} }
+  clearBeatLights();
+}
+function beginMetroSchedule() {
+  stopMetroSchedule();
+  nextMetroTime = ctx.currentTime + .035;
+  beatIndex = 0;
+  metroScheduler();
+  metroTimer = setInterval(metroScheduler, 25);
+}
+function setMetroUI(playing) {
+  $('metro-toggle').textContent = playing ? '■ 정지' : '▶ 시작';
+  $('metro-toggle').setAttribute('aria-pressed', String(playing));
+  $('metro-state').textContent = playing ? 'PLAYING' : 'STOPPED';
+  $('metro-state').classList.toggle('running', playing);
+}
+$('metro-toggle').onclick = async () => {
+  if (metroTimer) { stopMetroSchedule(); setMetroUI(false); $('metro-message').textContent = '메트로놈을 정지했습니다.'; return; }
+  if (!await ensureEngine()) { $('metro-message').textContent = '오디오 엔진을 시작할 수 없습니다.'; return; }
+  beginMetroSchedule(); setMetroUI(true);
+  $('metro-message').textContent = '메트로놈이 실행 중입니다. 기타 출력 장치에서 클릭이 들립니다.';
+};
+function updateTempo(value) {
+  const bpm = Math.max(40, Math.min(240, Math.round(Number(value) || 100)));
+  $('metro-bpm').value = $('metro-bpm-number').value = bpm;
+  $('tempo-display').textContent = bpm;
+  if (metroTimer) beginMetroSchedule();
+}
+$('metro-bpm').oninput = event => updateTempo(event.target.value);
+$('metro-bpm-number').onchange = event => updateTempo(event.target.value);
+$('metro-beats').onchange = () => { renderBeats(); if (metroTimer) beginMetroSchedule(); };
+$('metro-volume').oninput = event => { $('metro-volume-value').textContent = `${event.target.value}%`; };
+let tapTimes = [];
+$('metro-tap').onclick = () => {
+  const now = performance.now();
+  if (tapTimes.length && now - tapTimes.at(-1) > 1800) tapTimes = [];
+  tapTimes.push(now);
+  tapTimes = tapTimes.slice(-5);
+  if (tapTimes.length < 2) { $('metro-message').textContent = '한 번 더 탭하면 템포를 계산합니다.'; return; }
+  const intervals = tapTimes.slice(1).map((time, i) => time - tapTimes[i]);
+  updateTempo(60000 / (intervals.reduce((a, b) => a + b, 0) / intervals.length));
+  $('metro-message').textContent = `${$('metro-bpm').value} BPM으로 설정했습니다.`;
+};
+renderBeats();
 render();
