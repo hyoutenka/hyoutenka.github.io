@@ -479,7 +479,7 @@ function meterLoop() {
   animationId = requestAnimationFrame(meterLoop);
 }
 // The practice player uses native media controls; its audio is independent of the guitar graph.
-let practiceObjectUrl = null;
+let practiceObjectUrl = null, practiceSourceName = '영상';
 const practiceVideo = $('practice-video'), youtubePlayer = $('youtube-player');
 function videoStatus(message, error = false) {
   $('video-status').textContent = message;
@@ -541,6 +541,7 @@ function loadPracticeUrl() {
       showPracticeMedia('youtube');
       videoStatus('유튜브 영상을 불러왔습니다. 플레이어에서 재생하세요.');
     } else {
+      practiceSourceName = '영상';
       practiceVideo.src = url.href;
       showPracticeMedia('video');
       videoStatus('영상 파일을 확인하고 있습니다…');
@@ -556,11 +557,15 @@ $('video-file').onchange = event => {
     videoStatus('영상 파일을 선택하세요.', true); return;
   }
   clearPracticeMedia();
+  practiceSourceName = file.name;
   practiceObjectUrl = URL.createObjectURL(file);
   practiceVideo.src = practiceObjectUrl;
   showPracticeMedia('video');
   videoStatus(`${file.name} · 재생 버튼을 누르세요.`);
 };
+practiceVideo.addEventListener('loadedmetadata', () => {
+  videoStatus(`${practiceSourceName} · 준비되었습니다. 재생 버튼을 누르세요.`);
+});
 practiceVideo.addEventListener('error', () => {
   if (practiceVideo.src) videoStatus('영상을 재생할 수 없습니다. 파일 형식·코덱 또는 외부 서버의 직접 재생 허용 여부를 확인하세요.', true);
 });
