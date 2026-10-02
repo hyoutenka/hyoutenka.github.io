@@ -39,6 +39,7 @@
 .node.dragging{opacity:.2;transform:scale(.94)}.node-drag-ghost{position:fixed;z-index:50;pointer-events:none;cursor:grabbing!important;opacity:.96;transform:rotate(-1deg) scale(1.06);box-shadow:0 24px 45px #000b,0 0 0 3px #e3a75d77;animation:node-pickup .16s cubic-bezier(.2,.8,.2,1) both;transition:none!important}.slot.drop-target .node{box-shadow:0 0 0 4px #71b6b944,0 0 20px #71b6b955}.signal-panel.reconnecting{animation:chain-reconnect .38s ease-out}
 @keyframes node-pickup{from{transform:rotate(0) scale(1);box-shadow:0 8px 18px #0006}to{transform:rotate(-1deg) scale(1.06);box-shadow:0 24px 45px #000b,0 0 0 3px #e3a75d77}}
 @keyframes chain-reconnect{0%{border-color:var(--cyan);box-shadow:0 0 0 4px #71b6b932}100%{border-color:var(--stroke);box-shadow:0 14px 30px #080b0c27}}
+.node-level{position:absolute;right:12px;bottom:9px;color:var(--cyan);font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}.node-level.hot{color:#f48173}.node.off .node-level{opacity:.7}@media(max-width:740px){.node{height:146px}}
 @media(prefers-reduced-motion:reduce){.node-drag-ghost,.signal-panel.reconnecting{animation:none}.node.dragging{transform:none}}
 
 /* Catalog availability: green means the audio model can be selected; gold means planned. */

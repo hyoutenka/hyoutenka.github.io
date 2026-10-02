@@ -255,7 +255,7 @@ function renderChain() {
     button.className = `node ${meta ? 'released' : 'empty'} ${selected === i ? 'selected' : ''} ${slot.bypass ? 'off' : ''}`;
     button.setAttribute('aria-label', `${i + 1}번 슬롯, ${meta ? meta.name : '비어 있음'}${slot.bypass ? ', 바이패스' : ''}`);
     if (meta) button.title = '드래그하여 다른 슬롯과 위치 바꾸기';
-    button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}`;
+    button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}${meta ? '<span class="node-level" title="이 슬롯의 출력 레벨">−∞ dBFS</span>' : ''}`;
     button.onclick = () => { if (suppressNodeClick) return; selected = i; pickerOpen = !slots[i].type; render(); };
     if (meta) {
       button.onpointerdown = event => {
@@ -559,7 +559,11 @@ function rebuild() {
   units = slots.map((slot, index) => slot.type ? { ...makeUnit(slot), slotIndex: index } : null).filter(Boolean);
   chainGain = ctx.createGain(); chainGain.gain.value = previousGain ? 0 : 1;
   let cursor = inputAnalyser;
-  for (const unit of units) { cursor.connect(unit.input); cursor = unit.output; }
+  for (const unit of units) {
+    const meter = ctx.createAnalyser(); meter.fftSize = 1024;
+    unit.nodes.push(meter); unit.meter = meter;
+    cursor.connect(unit.input); unit.output.connect(meter); cursor = meter;
+  }
   cursor.connect(chainGain).connect(master);
   if (previousGain) {
     const now = ctx.currentTime;
@@ -715,6 +719,16 @@ function meterLoop() {
   };
   update(inputAnalyser, $('input-meter'), $('input-level'));
   update(outputAnalyser, $('output-meter'), $('output-level'));
+  if (!$('effects-view').hidden) for (const unit of units) {
+    const label = $('chain').querySelector(`.slot[data-index="${unit.slotIndex}"] .node-level`);
+    if (!label) continue;
+    unit.meter.getFloatTimeDomainData(data);
+    let energy = 0, peak = 0;
+    for (const sample of data) { energy += sample * sample; peak = Math.max(peak, Math.abs(sample)); }
+    const db = 10 * Math.log10(Math.max(energy / data.length, 1e-12));
+    label.textContent = db <= -72 ? '−∞ dBFS' : `${Math.round(db)} dBFS`;
+    label.classList.toggle('hot', peak >= .98);
+  }
   animationId = requestAnimationFrame(meterLoop);
 }
 // The practice player uses native media controls; its audio is independent of the guitar graph.

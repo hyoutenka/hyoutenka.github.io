@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=catalog-1">
+  <link rel="stylesheet" href="./styles.css?v=stack-meter-1">
 </head>
 <body>
   <header class="topbar">
@@ -49,7 +49,7 @@
     <section class="signal-panel" aria-label="신호 경로">
       <div class="signal-top"><span>INPUT → EFFECTS → OUTPUT</span><span id="signal-status">연결 대기 중</span></div>
       <div class="chain" id="chain" aria-label="이펙트 체인"></div>
-      <div class="chain-hint">이펙트 노드를 다른 슬롯으로 끌어 놓으면 위치가 바뀝니다. 노드를 눌러 값을 조정하거나 편집기에서 좌우 이동 버튼을 사용하세요.</div>
+      <div class="chain-hint">왼쪽부터 순서대로 처리됩니다. 각 노드 아래는 다음 페달로 들어가는 레벨이며 빨간색은 피크 과다를 뜻합니다. 노드를 끌어 놓거나 좌우 이동 버튼으로 순서를 바꾸세요.</div>
     </section>
 
       <div class="effects-editor-wrap">
@@ -87,6 +87,6 @@
 
   </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=angel-1"></script>
+  <script type="module" src="./app.js?v=stack-meter-1"></script>
 </body>
 </html>
