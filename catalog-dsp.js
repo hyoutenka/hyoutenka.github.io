@@ -15,6 +15,34 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     return { dry, wet };
   };
   const parameter = (audioParam, value) => audioParam.setTargetAtTime(value, ctx.currentTime, .012);
+  if (model.engine === 'angel') {
+    // Manufacturer controls/description guide the response; component topology is not published.
+    // Two gentle, differently biased stages preserve picking dynamics at low gain.
+    const hp = filter('highpass', 90), focus = filter('peaking', 900, .9);
+    focus.gain.value = 2;
+    const pre = gain(1), first = add(ctx.createWaveShaper()), interstage = filter('lowpass', 6800);
+    const secondDrive = gain(1.6), second = add(ctx.createWaveShaper());
+    const bass = filter('lowshelf', 190), treble = filter('highshelf', 3200);
+    const presence = filter('lowpass', 10500), volume = gain(1);
+    const shape = (positive, negative) => Float32Array.from({length:4096}, (_, i) => {
+      const x = i * 2 / 4095 - 1;
+      return Math.tanh(x * (x >= 0 ? positive : negative));
+    });
+    first.curve = shape(1.7, 1.45); first.oversample = '4x';
+    second.curve = shape(1.35, 1.15); second.oversample = '4x';
+    input.connect(hp).connect(focus).connect(pre).connect(first)
+      .connect(interstage).connect(secondDrive).connect(second)
+      .connect(bass).connect(treble).connect(presence).connect(volume).connect(output);
+    const update = () => {
+      const drive = p.gain / 100;
+      parameter(pre.gain, 1 + drive * 5.5);
+      parameter(secondDrive.gain, 1.25 + drive * 1.1);
+      parameter(bass.gain, (p.bass - 50) * .22);
+      parameter(treble.gain, (p.treble - 50) * .22);
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * .95 / (1 + drive * .55));
+    };
+    update(); return { update };
+  }
   if (model.engine === 'drive') {
     const v = DRIVE_VOICES[voice], hp = filter('highpass', v.hp), mid = filter('peaking', 900, .8);
     mid.gain.value = v.mid * 4;

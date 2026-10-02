@@ -15,6 +15,7 @@
 | Marshall Bluesbreaker / Analogman King of Tone | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/) | Bluesbreaker 토폴로지와 2단 직렬 KoT 파생형을 구분. |
 | Fulltone OCD | [Aion Titan](https://aionfx.com/project-category/overdrive/), 프로젝트의 `ocd-schematic-analysis.png` | 현재 HP/LP 스위치 구현을 회로와 대조. 하드 클리핑과 후단 EQ. |
 | Vemuram Jan Ray | 사용자가 제공한 참고 자료 및 기존 `jan-ray-worklet.js` | 공개 회로와 버전 확인 전에는 현재 모델을 근사형으로 표시. |
+| A3 Stompbox Angel | [제조사 제품·조작 설명](https://a3stompbox.imweb.me/19) | JCM800에 영감을 받은 음색과 Volume·Gain·Bass·Treble 조작을 참고한 독립 DSP 근사. Angel의 부품별 회로는 확인되지 않아 회로 복제라고 표시하지 않음. |
 | Greer Lightspeed / Paul Cochrane Timmy / Hermida Zendrive | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/) | 저게인·톤 성격이 달라 TS의 파라미터 변형으로 묶지 않기. |
 
 ## 드라이브: 디스토션과 퍼즈

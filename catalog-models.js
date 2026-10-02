@@ -2,6 +2,7 @@
 // never manufacturer firmware, captures, or exact component-level emulations.
 const sliders = {
   drive: { gain: ['Drive', 0, 100, 42, '%'], tone: ['Tone', 0, 100, 55, '%'], level: ['Level', 0, 100, 65, '%'] },
+  angel: { volume: ['Volume', 0, 100, 58, '%'], gain: ['Gain', 0, 100, 38, '%'], bass: ['Bass', 0, 100, 50, '%'], treble: ['Treble', 0, 100, 50, '%'] },
   comp: { sustain: ['Sustain', 0, 100, 45, '%'], attack: ['Attack', 1, 100, 35, ' ms'], level: ['Level', 0, 100, 65, '%'], blend: ['Blend', 0, 100, 100, '%'] },
   modulation: { rate: ['Rate', 1, 100, 37, '%'], depth: ['Depth', 0, 100, 55, '%'], mix: ['Mix', 0, 100, 45, '%'], feedback: ['Feedback', 0, 80, 20, '%'] },
   tremolo: { rate: ['Rate', 1, 120, 34, '%'], depth: ['Depth', 0, 100, 58, '%'], shape: ['Wave shape', 0, 100, 20, '%'] },
@@ -27,6 +28,7 @@ const MODEL_ROWS = [
   ['lightspeed','Greer Lightspeed','drive','drive','transparent','파생 회로'],
   ['timmy','Paul Cochrane Timmy','drive','drive','transparent','공개 파생 회로'],
   ['zendrive','Hermida Zendrive','drive','drive','zendrive','Zendrive 파생 회로'],
+  ['a3_angel','A3 Stompbox Angel','drive','angel','angel','A3 공식 제품 설명과 조작부'],
   ['rat','Pro Co RAT','distortion','drive','rat','초기 RAT 공개 회로'],
   ['rat2','Pro Co RAT2','distortion','drive','rat','RAT 계열 근사'],
   ['turbo_rat','Pro Co Turbo RAT','distortion','drive','turbo','RAT 계열 근사'],
@@ -104,6 +106,7 @@ const CATALOG_MODELS = Object.fromEntries(MODEL_ROWS.map(([id,name,group,engine,
     description: `${name} · ${reference}를 참고한 독립 DSP 근사 모델입니다. 실제 페달의 내부 알고리즘이나 부품 전체를 복제한 것은 아닙니다.`,
     params: Object.fromEntries(Object.entries(sliders[engine] || sliders.reverb).map(([key, value]) => [key, [...value]])) }
 ]));
+CATALOG_MODELS.a3_angel.description = 'A3 Stompbox Angel의 공식 조작부와 JCM800에 영감을 받은 선명한 드라이브 설명을 참고했습니다. 두 단계의 소프트 클리핑으로 피킹 강약을 살리고 Bass·Treble을 따로 조절하는 독립 DSP 근사입니다. 실제 페달의 회로나 실측 캡처는 아닙니다.';
 for (const id of ['dd200','dd500']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, 5, 0, ''];
   CATALOG_MODELS[id].description += ' 공개 모드 중 Digital, Analog, Tape, Dual, Mod, Ambient의 여섯 가지를 단순화해 제공합니다.';
