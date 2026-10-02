@@ -134,20 +134,67 @@ function refreshLatencyInfo() {
   $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'} · 실제 연주 지연은 장치에 따라 다릅니다.`;
 }
 function markCustom() { $('preset').value = 'custom'; }
-let nodeDrag = null, suppressNodeClick = false;
+let nodeDrag = null, suppressNodeClick = false, chainAnimationTimer;
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animateChainSwap(from, to, oldBoxes) {
+  if (reducedMotion()) return;
+  const chain = $('chain'), newBoxes = [...chain.children].map(el => el.getBoundingClientRect());
+  for (const [current, previous] of [[from, to], [to, from]]) {
+    const node = chain.children[current]?.querySelector('.node');
+    if (!node) continue;
+    const x = oldBoxes[previous].left - newBoxes[current].left;
+    const y = oldBoxes[previous].top - newBoxes[current].top;
+    node.animate([
+      { transform: `translate(${x}px, ${y}px) scale(.96)`, opacity: .7 },
+      { transform: 'translate(0, 0) scale(1)', opacity: 1 }
+    ], { duration: 320, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+  }
+  const panel = chain.closest('.signal-panel');
+  panel.classList.remove('reconnecting');
+  void panel.offsetWidth;
+  panel.classList.add('reconnecting');
+  clearTimeout(chainAnimationTimer);
+  chainAnimationTimer = setTimeout(() => panel.classList.remove('reconnecting'), 380);
+}
 function swapSlots(from, to) {
   if (from === to || !slots[from]?.type || !slots[to]) return;
+  const oldBoxes = [...$('chain').children].map(el => el.getBoundingClientRect());
   [slots[from], slots[to]] = [slots[to], slots[from]];
   if (selected === from) selected = to;
   else if (selected === to) selected = from;
   markCustom(); render(); rebuild();
+  animateChainSwap(from, to, oldBoxes);
   notify(`${from + 1}번과 ${to + 1}번 슬롯의 위치를 바꿨습니다.`);
 }
-function clearNodeDrag() {
+function liftNodeDrag(state) {
+  const rect = state.source.getBoundingClientRect();
+  const ghost = state.source.cloneNode(true);
+  ghost.classList.remove('dragging');
+  ghost.classList.add('node-drag-ghost');
+  ghost.removeAttribute('title');
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.tabIndex = -1;
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  state.offsetX = state.x - rect.left;
+  state.offsetY = state.y - rect.top;
+  ghost.style.left = `${rect.left}px`;
+  ghost.style.top = `${rect.top}px`;
+  document.body.append(ghost);
+  state.ghost = ghost;
+}
+function clearNodeDrag(settle = false) {
   if (!nodeDrag) return;
-  nodeDrag.source.classList.remove('dragging');
+  const { source, ghost } = nodeDrag;
+  source.classList.remove('dragging');
   $('chain').querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
   document.body.classList.remove('chain-dragging');
+  if (ghost) {
+    if (settle && !reducedMotion()) {
+      ghost.style.animation = 'none';
+      ghost.animate([{ opacity: .95, transform: 'rotate(-1deg) scale(1.06)' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 140, easing: 'ease-out' }).finished.then(() => ghost.remove(), () => ghost.remove());
+    } else ghost.remove();
+  }
   nodeDrag = null;
 }
 function dragTargetAt(x, y) {
@@ -173,8 +220,13 @@ function renderChain() {
       button.onpointermove = event => {
         if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
         if (!nodeDrag.moving && Math.hypot(event.clientX - nodeDrag.x, event.clientY - nodeDrag.y) < 8) return;
-        nodeDrag.moving = true;
-        button.classList.add('dragging'); document.body.classList.add('chain-dragging');
+        if (!nodeDrag.moving) {
+          nodeDrag.moving = true;
+          liftNodeDrag(nodeDrag);
+          button.classList.add('dragging'); document.body.classList.add('chain-dragging');
+        }
+        nodeDrag.ghost.style.left = `${event.clientX - nodeDrag.offsetX}px`;
+        nodeDrag.ghost.style.top = `${event.clientY - nodeDrag.offsetY}px`;
         const target = dragTargetAt(event.clientX, event.clientY);
         $('chain').querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
         nodeDrag.target = target !== i ? target : null;
@@ -184,12 +236,12 @@ function renderChain() {
       button.onpointerup = event => {
         if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
         const { from, target, moving } = nodeDrag;
-        clearNodeDrag();
+        clearNodeDrag(moving);
         if (!moving) return;
         suppressNodeClick = true; setTimeout(() => { suppressNodeClick = false; }, 0);
         if (target !== null) swapSlots(from, target);
       };
-      button.onpointercancel = clearNodeDrag;
+      button.onpointercancel = () => clearNodeDrag();
     }
     wrap.append(button); return wrap;
   }));

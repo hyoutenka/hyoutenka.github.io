@@ -34,3 +34,9 @@
 /* Chain position editing */
 .node:not(.empty){cursor:grab;touch-action:none}.node.dragging{cursor:grabbing;opacity:.48;transform:scale(.97)}.chain-dragging,.chain-dragging *{user-select:none!important}.slot.drop-target .node{border:2px solid var(--cyan);padding:14px 12px;box-shadow:0 0 0 4px #71b6b933;background:#2b373b}.slot.drop-target .node.selected{padding:13px 11px}.editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.move-effect{min-width:44px;min-height:44px;padding:7px;font-size:20px;line-height:1;font-weight:700;color:var(--accent)}.move-effect[hidden]{display:none}
 @media(max-width:540px){.editor .card-head{flex-wrap:wrap}.editor-actions{width:100%;justify-content:flex-start}}
+
+/* Pick up a node, then animate the two slots into their new positions. */
+.node.dragging{opacity:.2;transform:scale(.94)}.node-drag-ghost{position:fixed;z-index:50;pointer-events:none;cursor:grabbing!important;opacity:.96;transform:rotate(-1deg) scale(1.06);box-shadow:0 24px 45px #000b,0 0 0 3px #e3a75d77;animation:node-pickup .16s cubic-bezier(.2,.8,.2,1) both;transition:none!important}.slot.drop-target .node{box-shadow:0 0 0 4px #71b6b944,0 0 20px #71b6b955}.signal-panel.reconnecting{animation:chain-reconnect .38s ease-out}
+@keyframes node-pickup{from{transform:rotate(0) scale(1);box-shadow:0 8px 18px #0006}to{transform:rotate(-1deg) scale(1.06);box-shadow:0 24px 45px #000b,0 0 0 3px #e3a75d77}}
+@keyframes chain-reconnect{0%{border-color:var(--cyan);box-shadow:0 0 0 4px #71b6b932}100%{border-color:var(--stroke);box-shadow:0 14px 30px #080b0c27}}
+@media(prefers-reduced-motion:reduce){.node-drag-ghost,.signal-panel.reconnecting{animation:none}.node.dragging{transform:none}}
