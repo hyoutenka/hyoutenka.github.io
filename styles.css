@@ -40,3 +40,16 @@
 @keyframes node-pickup{from{transform:rotate(0) scale(1);box-shadow:0 8px 18px #0006}to{transform:rotate(-1deg) scale(1.06);box-shadow:0 24px 45px #000b,0 0 0 3px #e3a75d77}}
 @keyframes chain-reconnect{0%{border-color:var(--cyan);box-shadow:0 0 0 4px #71b6b932}100%{border-color:var(--stroke);box-shadow:0 14px 30px #080b0c27}}
 @media(prefers-reduced-motion:reduce){.node-drag-ghost,.signal-panel.reconnecting{animation:none}.node.dragging{transform:none}}
+
+/* Catalog availability: green means the audio model can be selected; gold means planned. */
+.effect-legend{display:flex;gap:18px;align-items:center;font-size:12px;font-weight:800;margin:0 0 12px}
+.legend-live{color:#76d39b}.legend-planned{color:#e3a75d}
+.effect-subheading{grid-column:1/-1;font-size:13px;letter-spacing:.06em;color:#c2ccd1;margin:15px 0 1px;padding-bottom:8px;border-bottom:1px solid var(--stroke)}
+.effect-option.released{border-color:#426b51;background:#1c2a25}
+.effect-option.released:hover{border-color:#76d39b;background:#263c30}
+.effect-option.released .effect-icon,.effect-option.released small{color:#76d39b}
+.effect-option.planned,.effect-option.planned:disabled{opacity:1;cursor:default;border-color:#755d3c;background:#2b261d}
+.effect-option.planned .effect-icon,.effect-option.planned small{color:#e3a75d}
+.node.released .node-symbol{color:#76d39b}
+.node.released.selected{border-color:#76d39b;box-shadow:0 0 0 3px #76d39b24}
+.node.released:hover{border-color:#76d39b}
