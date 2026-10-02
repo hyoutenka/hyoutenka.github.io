@@ -44,3 +44,28 @@ class CatalogPitchProcessor extends AudioWorkletProcessor {
   }
 }
 registerProcessor('catalog-pitch', CatalogPitchProcessor);
+
+// Plays the previous short chunk backwards. Used only in wet echo paths.
+class CatalogReverseProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.length = Math.round(sampleRate * .18);
+    this.buffers = Array.from({length:2},()=>[new Float32Array(this.length),new Float32Array(this.length)]);
+    this.index = 0;
+    this.active = 0;
+  }
+  process(inputs,outputs) {
+    const input=inputs[0] || [], output=outputs[0] || [];
+    if (!output.length) return true;
+    for (let i=0;i<output[0].length;i++) {
+      for (let ch=0;ch<output.length;ch++) {
+        const channel=this.buffers[Math.min(ch,1)];
+        channel[this.active][this.index]=input[ch]?.[i] ?? input[0]?.[i] ?? 0;
+        output[ch][i]=channel[1-this.active][this.length-1-this.index];
+      }
+      if (++this.index>=this.length) { this.index=0; this.active=1-this.active; }
+    }
+    return true;
+  }
+}
+registerProcessor('catalog-reverse', CatalogReverseProcessor);
