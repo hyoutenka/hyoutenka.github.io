@@ -6,54 +6,19 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=practice-1">
+  <link rel="stylesheet" href="./styles.css?v=layout-1">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><strong>web effecter</strong><small>GUITAR SIGNAL LAB</small></div></div>
+    <div class="topbar-left"><button id="io-drawer-toggle" class="drawer-trigger" type="button" aria-controls="io-drawer" aria-expanded="false"><span aria-hidden="true">☷</span> 입출력</button><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><strong>web effecter</strong><small>GUITAR SIGNAL LAB</small></div></div></div>
     <div class="top-actions"><span id="engine-state" class="engine-state">ENGINE OFF</span><button id="power" class="power" type="button"><span aria-hidden="true">⏻</span> 오디오 시작</button></div>
   </header>
 
   <main class="workspace">
-    <section class="toolbar" aria-label="프리셋">
-      <div><p class="eyebrow">PEDALBOARD / 01</p><h1>Signal chain</h1><p class="muted">슬롯을 눌러 이펙트를 선택하고 왼쪽부터 순서대로 소리를 만드세요.</p></div>
-      <div class="toolbar-actions"><button id="violin-switch" class="violin-switch" type="button" aria-pressed="false" hidden>VIOLIN OFF <span>V</span></button><label class="preset-label">프리셋 <select id="preset"><option value="custom">사용자 설정</option><option value="nam_ac10">AC10 + Vox 2×12</option><option value="nam_deluxe">Deluxe Reverb + Fender Tweed 1×12</option><option value="nam_jcm">JCM + Marshall 4×12</option></select></label></div>
-    </section>
-
-    <section class="signal-panel" aria-label="신호 경로">
-      <div class="signal-top"><span>INPUT → EFFECTS → OUTPUT</span><span id="signal-status">연결 대기 중</span></div>
-      <div class="chain" id="chain" aria-label="이펙트 체인"></div>
-      <div class="chain-hint">노드를 눌러 값을 조정하세요. 바이올린 슬롯이 있으면 V 키나 VIOLIN 버튼으로 연주 중 켜고 끌 수 있습니다.</div>
-    </section>
-
-    <div class="lower-grid">
-      <section class="card io-card" aria-labelledby="io-title">
-        <div class="card-head"><div><p class="eyebrow">AUDIO ROUTING</p><h2 id="io-title">입출력</h2></div><span class="pill">LOCAL AUDIO</span></div>
-        <div class="source-tabs" role="group" aria-label="입력 방식"><button id="tab-device" type="button" class="active">오디오 인터페이스</button><button id="tab-file" type="button">녹음 파일</button></div>
-        <div id="device-panel" class="source-panel">
-          <label for="input-device">입력 장치</label><div class="inline"><select id="input-device"><option value="">권한을 허용하면 장치가 표시됩니다</option></select><button id="request-input" class="subtle" type="button">연결</button></div>
-          <p class="help">기타가 연결된 인터페이스 입력을 선택하세요. 스피커 피드백을 피하려면 헤드폰을 사용하세요.</p>
-        </div>
-        <div id="file-panel" class="source-panel" hidden>
-          <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
-          <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
-        </div>
-        <div class="level-row input-level-row"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
-        <div class="divider"></div>
-        <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
-        <div class="level-row"><div class="master-heading"><label for="master-volume">출력 레벨 <output id="master-value">100%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="200" value="100"></div>
-        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
-        <p id="latency-status" class="latency-status">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
-      </section>
-
-      <section class="card editor" aria-labelledby="editor-title">
-        <div class="card-head"><div><p class="eyebrow" id="editor-index">SLOT 01</p><h2 id="editor-title">이펙트 선택</h2></div><button id="bypass" class="bypass" type="button" hidden>BYPASS</button></div>
-        <div id="effect-picker"><p class="help">종류를 고른 뒤 원하는 페달을 선택하세요.</p><div id="category-list" class="category-list" role="group" aria-label="이펙트 대분류"></div><p id="category-heading" class="category-heading"></p><div class="effect-grid" id="effect-grid"></div><button id="clear-slot" class="text-button" type="button" hidden>이 슬롯 비우기</button></div>
-        <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="nam-panel" hidden><p id="nam-status" class="help" role="status">오디오 시작을 누르면 모델을 불러옵니다.</p><a id="nam-source" href="https://github.com/tone-3000/neural-amp-modeler-wasm" target="_blank" rel="noopener noreferrer">캡처 출처 · TONE3000 NAM 예제</a></div><div id="ir-panel" hidden><label for="ir-library">IR 선택</label><select id="ir-library"><option value="body">데모 합성 바디</option><option value="violin_treble">Violin Octet · Treble (Gras 스테레오)</option><option value="vox_ac30">Vox AC30 2×12 · SM57</option><option value="fender_deluxe">Fender Tweed 1×12 · SM57</option><option value="marshall_1960">Marshall 1960 4×12 · SM57</option><option value="celestion">Celestion 예제</option><option value="mesa">Mesa 예제</option><option value="none">IR 없음</option><option value="custom" hidden>사용자 IR</option></select><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p><a id="ir-source" href="https://github.com/DCisHurt/CabImpulse" target="_blank" rel="noopener noreferrer" hidden>캐비닛 IR 출처 · CabImpulse (MIT)</a></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
-      </section>
-    </div>
+    <nav class="view-tabs" role="tablist" aria-label="작업 화면"><button id="tab-practice" class="view-tab active" type="button" role="tab" aria-selected="true" aria-controls="practice-view" tabindex="0"><span aria-hidden="true">▷</span> 연습</button><button id="tab-effects" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="effects-view" tabindex="-1"><span aria-hidden="true">≋</span> 이펙터 설정</button></nav>
+    <section id="practice-view" role="tabpanel" aria-labelledby="tab-practice">
     <section class="practice" aria-labelledby="practice-title">
-      <div class="practice-heading"><div><p class="eyebrow">PRACTICE / 02</p><h2 id="practice-title">연습실</h2><p class="muted">영상을 틀고 기타 체인의 소리를 들으며 연습하세요.</p></div><span class="practice-caption">VIDEO · TEMPO</span></div>
+      <div class="practice-heading"><div><p class="eyebrow">PRACTICE / 01</p><h1 id="practice-title">연습실</h1><p class="muted">영상을 틀고 기타 체인의 소리를 들으며 연습하세요.</p></div><span class="practice-caption">VIDEO · TEMPO</span></div>
       <div class="practice-grid">
         <section class="card viewer-card" aria-labelledby="viewer-title">
           <div class="card-head"><div><p class="eyebrow">REFERENCE PLAYER</p><h3 id="viewer-title">영상 뷰어</h3></div><span class="pill">PLAY ALONG</span></div>
@@ -74,10 +39,54 @@
         </section>
       </div>
     </section>
+    </section>
+    <section id="effects-view" role="tabpanel" aria-labelledby="tab-effects" hidden>
+    <section class="toolbar" aria-label="프리셋">
+      <div><p class="eyebrow">PEDALBOARD / 02</p><h1>Signal chain</h1><p class="muted">슬롯을 눌러 이펙트를 선택하고 왼쪽부터 순서대로 소리를 만드세요.</p></div>
+      <div class="toolbar-actions"><button id="violin-switch" class="violin-switch" type="button" aria-pressed="false" hidden>VIOLIN OFF <span>V</span></button><label class="preset-label">프리셋 <select id="preset"><option value="custom">사용자 설정</option><option value="nam_ac10">AC10 + Vox 2×12</option><option value="nam_deluxe">Deluxe Reverb + Fender Tweed 1×12</option><option value="nam_jcm">JCM + Marshall 4×12</option></select></label></div>
+    </section>
+
+    <section class="signal-panel" aria-label="신호 경로">
+      <div class="signal-top"><span>INPUT → EFFECTS → OUTPUT</span><span id="signal-status">연결 대기 중</span></div>
+      <div class="chain" id="chain" aria-label="이펙트 체인"></div>
+      <div class="chain-hint">노드를 눌러 값을 조정하세요. 바이올린 슬롯이 있으면 V 키나 VIOLIN 버튼으로 연주 중 켜고 끌 수 있습니다.</div>
+    </section>
+
+      <div class="effects-editor-wrap">
+      <section class="card editor" aria-labelledby="editor-title">
+        <div class="card-head"><div><p class="eyebrow" id="editor-index">SLOT 01</p><h2 id="editor-title">이펙트 선택</h2></div><button id="bypass" class="bypass" type="button" hidden>BYPASS</button></div>
+        <div id="effect-picker"><p class="help">종류를 고른 뒤 원하는 페달을 선택하세요.</p><div id="category-list" class="category-list" role="group" aria-label="이펙트 대분류"></div><p id="category-heading" class="category-heading"></p><div class="effect-grid" id="effect-grid"></div><button id="clear-slot" class="text-button" type="button" hidden>이 슬롯 비우기</button></div>
+        <div id="effect-controls" hidden><p id="effect-description" class="help"></p><div id="parameter-list" class="parameter-list"></div><div id="nam-panel" hidden><p id="nam-status" class="help" role="status">오디오 시작을 누르면 모델을 불러옵니다.</p><a id="nam-source" href="https://github.com/tone-3000/neural-amp-modeler-wasm" target="_blank" rel="noopener noreferrer">캡처 출처 · TONE3000 NAM 예제</a></div><div id="ir-panel" hidden><label for="ir-library">IR 선택</label><select id="ir-library"><option value="body">데모 합성 바디</option><option value="violin_treble">Violin Octet · Treble (Gras 스테레오)</option><option value="vox_ac30">Vox AC30 2×12 · SM57</option><option value="fender_deluxe">Fender Tweed 1×12 · SM57</option><option value="marshall_1960">Marshall 1960 4×12 · SM57</option><option value="celestion">Celestion 예제</option><option value="mesa">Mesa 예제</option><option value="none">IR 없음</option><option value="custom" hidden>사용자 IR</option></select><label for="ir-file">IR 파일 불러오기</label><input id="ir-file" type="file" accept="audio/*,.wav,.aiff,.aif"><p id="ir-name" class="help">기본값: 데모용 합성 바디 IR · IR 파일을 불러오면 교체됩니다.</p><a id="ir-source" href="https://github.com/DCisHurt/CabImpulse" target="_blank" rel="noopener noreferrer" hidden>캐비닛 IR 출처 · CabImpulse (MIT)</a></div><button id="change-effect" class="text-button" type="button">다른 이펙트로 변경</button></div>
+      </section>
+      </div>
+    </section>
     <div class="notice" role="status" id="notice">오디오 시작을 누르면 브라우저의 오디오 엔진이 켜집니다.</div>
     <footer>헤드폰 권장 · 오디오는 기기 안에서 처리됩니다. SAW 변환은 단음 입력에 맞춰졌으며, 실제 바이올린 음색은 불러온 IR과 연주 방식에 따라 달라집니다.</footer>
   </main>
+  <div id="io-backdrop" class="io-backdrop" hidden></div>
+  <aside id="io-drawer" class="io-drawer" role="dialog" aria-modal="true" aria-labelledby="io-title" hidden>
+    <div class="drawer-bar"><span>오디오 라우팅</span><button id="io-drawer-close" class="drawer-close" type="button" aria-label="입출력 설정 닫기">×</button></div>
+      <section class="card io-card" aria-labelledby="io-title">
+        <div class="card-head"><div><p class="eyebrow">AUDIO ROUTING</p><h2 id="io-title">입출력</h2></div><span class="pill">LOCAL AUDIO</span></div>
+        <div class="source-tabs" role="group" aria-label="입력 방식"><button id="tab-device" type="button" class="active">오디오 인터페이스</button><button id="tab-file" type="button">녹음 파일</button></div>
+        <div id="device-panel" class="source-panel">
+          <label for="input-device">입력 장치</label><div class="inline"><select id="input-device"><option value="">권한을 허용하면 장치가 표시됩니다</option></select><button id="request-input" class="subtle" type="button">연결</button></div>
+          <p class="help">기타가 연결된 인터페이스 입력을 선택하세요. 스피커 피드백을 피하려면 헤드폰을 사용하세요.</p>
+        </div>
+        <div id="file-panel" class="source-panel" hidden>
+          <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
+          <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
+        </div>
+        <div class="level-row input-level-row"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
+        <div class="divider"></div>
+        <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
+        <div class="level-row"><div class="master-heading"><label for="master-volume">출력 레벨 <output id="master-value">100%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="200" value="100"></div>
+        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
+        <p id="latency-status" class="latency-status">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
+      </section>
+
+  </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=practice-2"></script>
+  <script type="module" src="./app.js?v=layout-1"></script>
 </body>
 </html>

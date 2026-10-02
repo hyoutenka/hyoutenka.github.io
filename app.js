@@ -63,6 +63,66 @@ let isMuted = false, outputRoute = 'context';
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
+// Keep playback and the effect graph alive while switching workspace panels.
+const viewTabs = [$('tab-practice'), $('tab-effects')];
+function showView(view, focusTab = false) {
+  const practice = view === 'practice';
+  $('practice-view').hidden = !practice;
+  $('effects-view').hidden = practice;
+  viewTabs.forEach((tab, index) => {
+    const active = practice ? index === 0 : index === 1;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  if (focusTab) viewTabs[practice ? 0 : 1].focus();
+}
+viewTabs.forEach((tab, index) => {
+  tab.onclick = () => showView(index === 0 ? 'practice' : 'effects');
+  tab.onkeydown = event => {
+    const target = event.key === 'ArrowRight' ? (index + 1) % 2 : event.key === 'ArrowLeft' ? (index + 1) % 2 : event.key === 'Home' ? 0 : event.key === 'End' ? 1 : null;
+    if (target === null) return;
+    event.preventDefault(); showView(target === 0 ? 'practice' : 'effects', true);
+  };
+});
+
+const drawer = $('io-drawer'), backdrop = $('io-backdrop'), drawerTrigger = $('io-drawer-toggle');
+let drawerCloseTimer = null;
+function openIODrawer() {
+  clearTimeout(drawerCloseTimer);
+  drawer.hidden = backdrop.hidden = false;
+  drawer.inert = false;
+  document.body.classList.add('drawer-open');
+  drawerTrigger.setAttribute('aria-expanded', 'true');
+  document.querySelector('main').inert = true;
+  document.querySelector('.topbar').inert = true;
+  requestAnimationFrame(() => { if (!drawer.inert && !drawer.hidden) { drawer.classList.add('open'); backdrop.classList.add('open'); } });
+  $('io-drawer-close').focus();
+}
+function closeIODrawer() {
+  if (drawer.hidden) return;
+  drawer.classList.remove('open'); backdrop.classList.remove('open');
+  drawer.inert = true;
+  document.body.classList.remove('drawer-open');
+  document.querySelector('main').inert = false;
+  document.querySelector('.topbar').inert = false;
+  drawerTrigger.setAttribute('aria-expanded', 'false');
+  drawerTrigger.focus();
+  drawerCloseTimer = setTimeout(() => { drawer.hidden = backdrop.hidden = true; }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 230);
+}
+drawerTrigger.onclick = openIODrawer;
+$('io-drawer-close').onclick = closeIODrawer;
+backdrop.onclick = closeIODrawer;
+document.addEventListener('keydown', event => {
+  if (drawer.hidden || drawer.inert) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeIODrawer(); return; }
+  if (event.key !== 'Tab') return;
+  const items = [...drawer.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]')].filter(el => el.getClientRects().length && !el.closest('[hidden]'));
+  if (!items.length) return;
+  if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1).focus(); }
+  else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus(); }
+});
+
 function notify(message, error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
 function refreshLatencyInfo() {
   if (!ctx) return;
