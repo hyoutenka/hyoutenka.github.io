@@ -102,7 +102,7 @@ const CATALOG_MODELS = Object.fromEntries(MODEL_ROWS.map(([id,name,group,engine,
   id, { name, category: group.toUpperCase(), symbol: {drive:'ϟ',distortion:'ϟ',fuzz:'✺',compressor:'▤',mod:'∿',delay:'↝',reverb:'⌁'}[group],
     engine, voice, reference,
     description: `${name} · ${reference}를 참고한 독립 DSP 근사 모델입니다. 실제 페달의 내부 알고리즘이나 부품 전체를 복제한 것은 아닙니다.`,
-    params: Object.fromEntries(Object.entries(sliders[engine]).map(([key, value]) => [key, [...value]])) }
+    params: Object.fromEntries(Object.entries(sliders[engine] || sliders.reverb).map(([key, value]) => [key, [...value]])) }
 ]));
 for (const id of ['dd200','dd500']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, 5, 0, ''];
