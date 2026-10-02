@@ -46,7 +46,7 @@ for (const group of ['기타 캐비닛', '베이스 캐비닛', '바이올린 �
   optgroup.label = group;
   for (const [key, ir] of Object.entries(CAB_IRS)) {
     if (ir.group !== group) continue;
-    optgroup.add(new Option(ir.name, key));
+    optgroup.append(new Option(ir.name, key));
   }
   irSelect.insertBefore(optgroup, irSelect.querySelector('option[value="none"]'));
 }
