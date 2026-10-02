@@ -134,15 +134,63 @@ function refreshLatencyInfo() {
   $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'} · 실제 연주 지연은 장치에 따라 다릅니다.`;
 }
 function markCustom() { $('preset').value = 'custom'; }
+let nodeDrag = null, suppressNodeClick = false;
+function swapSlots(from, to) {
+  if (from === to || !slots[from]?.type || !slots[to]) return;
+  [slots[from], slots[to]] = [slots[to], slots[from]];
+  if (selected === from) selected = to;
+  else if (selected === to) selected = from;
+  markCustom(); render(); rebuild();
+  notify(`${from + 1}번과 ${to + 1}번 슬롯의 위치를 바꿨습니다.`);
+}
+function clearNodeDrag() {
+  if (!nodeDrag) return;
+  nodeDrag.source.classList.remove('dragging');
+  $('chain').querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  document.body.classList.remove('chain-dragging');
+  nodeDrag = null;
+}
+function dragTargetAt(x, y) {
+  const slot = document.elementFromPoint(x, y)?.closest('.slot');
+  return slot?.parentElement === $('chain') ? Number(slot.dataset.index) : null;
+}
 function renderChain() {
   $('chain').replaceChildren(...slots.map((slot, i) => {
     const meta = slot.type && EFFECTS[slot.type];
-    const wrap = document.createElement('div'); wrap.className = 'slot';
+    const wrap = document.createElement('div'); wrap.className = 'slot'; wrap.dataset.index = i;
     const button = document.createElement('button'); button.type = 'button';
     button.className = `node ${meta ? '' : 'empty'} ${selected === i ? 'selected' : ''} ${slot.bypass ? 'off' : ''}`;
     button.setAttribute('aria-label', `${i + 1}번 슬롯, ${meta ? meta.name : '비어 있음'}${slot.bypass ? ', 바이패스' : ''}`);
+    if (meta) button.title = '드래그하여 다른 슬롯과 위치 바꾸기';
     button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}`;
-    button.onclick = () => { selected = i; pickerOpen = !slots[i].type; render(); };
+    button.onclick = () => { if (suppressNodeClick) return; selected = i; pickerOpen = !slots[i].type; render(); };
+    if (meta) {
+      button.onpointerdown = event => {
+        if (!event.isPrimary || event.button !== 0) return;
+        nodeDrag = { from: i, x: event.clientX, y: event.clientY, pointerId: event.pointerId, source: button, target: null, moving: false };
+        button.setPointerCapture(event.pointerId);
+      };
+      button.onpointermove = event => {
+        if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+        if (!nodeDrag.moving && Math.hypot(event.clientX - nodeDrag.x, event.clientY - nodeDrag.y) < 8) return;
+        nodeDrag.moving = true;
+        button.classList.add('dragging'); document.body.classList.add('chain-dragging');
+        const target = dragTargetAt(event.clientX, event.clientY);
+        $('chain').querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+        nodeDrag.target = target !== i ? target : null;
+        if (nodeDrag.target !== null) $('chain').children[nodeDrag.target]?.classList.add('drop-target');
+        event.preventDefault();
+      };
+      button.onpointerup = event => {
+        if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+        const { from, target, moving } = nodeDrag;
+        clearNodeDrag();
+        if (!moving) return;
+        suppressNodeClick = true; setTimeout(() => { suppressNodeClick = false; }, 0);
+        if (target !== null) swapSlots(from, target);
+      };
+      button.onpointercancel = clearNodeDrag;
+    }
     wrap.append(button); return wrap;
   }));
 }
@@ -153,6 +201,10 @@ function renderEditor() {
   $('effect-picker').hidden = !!meta && !pickerOpen;
   $('effect-controls').hidden = !meta || pickerOpen;
   $('bypass').hidden = !meta || pickerOpen;
+  for (const [id, available] of [['move-left', selected > 0], ['move-right', selected < slots.length - 1]]) {
+    $(id).hidden = !meta;
+    $(id).disabled = !available;
+  }
   $('bypass').classList.toggle('active', !!slot.bypass);
   $('bypass').textContent = slot.bypass ? 'BYPASS ON' : 'BYPASS OFF';
   if (!meta || pickerOpen) renderPicker();
@@ -237,6 +289,8 @@ function renderPicker() {
 $('clear-slot').onclick = () => setEffect(null);
 $('change-effect').onclick = () => { activeCategory = CATEGORIES.find(c => c.effects.includes(slots[selected].type))?.id || 'compressor'; pickerOpen = true; renderEditor(); };
 $('bypass').onclick = () => { slots[selected].bypass = !slots[selected].bypass; markCustom(); render(); rebuild(); };
+$('move-left').onclick = () => swapSlots(selected, selected - 1);
+$('move-right').onclick = () => swapSlots(selected, selected + 1);
 $('violin-switch').onclick = () => {
   const pair = slots.filter(s => s.type === 'saw' || s.type === 'ir');
   if (pair.length !== 2) return;

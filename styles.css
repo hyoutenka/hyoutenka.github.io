@@ -30,3 +30,7 @@
 @media(max-width:540px){.brand strong,.brand small{display:none}.topbar{gap:8px}.topbar-left{gap:8px}.top-actions{gap:0}#power{font-size:13px}.practice{margin-top:22px}}
 @media(prefers-reduced-motion:reduce){.io-backdrop,.io-drawer{transition:none}}
 .practice-heading h1{font-size:clamp(27px,3vw,36px);letter-spacing:-.045em;line-height:1.1;margin:0 0 8px}
+
+/* Chain position editing */
+.node:not(.empty){cursor:grab;touch-action:none}.node.dragging{cursor:grabbing;opacity:.48;transform:scale(.97)}.chain-dragging,.chain-dragging *{user-select:none!important}.slot.drop-target .node{border:2px solid var(--cyan);padding:14px 12px;box-shadow:0 0 0 4px #71b6b933;background:#2b373b}.slot.drop-target .node.selected{padding:13px 11px}.editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.move-effect{min-width:44px;min-height:44px;padding:7px;font-size:20px;line-height:1;font-weight:700;color:var(--accent)}.move-effect[hidden]{display:none}
+@media(max-width:540px){.editor .card-head{flex-wrap:wrap}.editor-actions{width:100%;justify-content:flex-start}}
