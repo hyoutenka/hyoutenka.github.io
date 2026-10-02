@@ -1,4 +1,4 @@
-import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=a3-stack-1';
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=a3-stack-2';
 import { makeCatalogUnit } from './catalog-dsp.js?v=a3-stack-1';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
@@ -255,7 +255,7 @@ function renderChain() {
     button.className = `node ${meta ? 'released' : 'empty'} ${selected === i ? 'selected' : ''} ${slot.bypass ? 'off' : ''}`;
     button.setAttribute('aria-label', `${i + 1}번 슬롯, ${meta ? meta.name : '비어 있음'}${slot.bypass ? ', 바이패스' : ''}`);
     if (meta) button.title = '드래그하여 다른 슬롯과 위치 바꾸기';
-    button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}${meta ? '<span class="node-level" title="이 슬롯의 출력 레벨">−∞ dBFS</span>' : ''}`;
+    button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.shortName || meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}${meta ? '<span class="node-level" title="이 슬롯의 출력 레벨">−∞ dBFS</span>' : ''}`;
     button.onclick = () => { if (suppressNodeClick) return; selected = i; pickerOpen = !slots[i].type; render(); };
     if (meta) {
       button.onpointerdown = event => {

@@ -113,6 +113,7 @@ const CATALOG_MODELS = Object.fromEntries(MODEL_ROWS.map(([id,name,group,engine,
 CATALOG_MODELS.a3_angel.description = 'A3 Stompbox Angel의 공식 조작부와 JCM800에 영감을 받은 선명한 드라이브 설명을 참고했습니다. 두 단계의 소프트 클리핑으로 피킹 강약을 살리고 Bass·Treble을 따로 조절하는 독립 DSP 근사입니다. 실제 페달의 회로나 실측 캡처는 아닙니다.';
 CATALOG_MODELS.a3_awesome.description = 'A3 Stompbox Awesome의 부스트·프리앰프·자연스러운 오버드라이브 성격을 참고했습니다. 낮은 Gain에서 클린 경로가 우세하고 Gain을 올리면 소프트 클리핑 경로가 섞이는 독립 DSP 근사입니다. 실제 회로나 페달 실측은 아닙니다.';
 CATALOG_MODELS.a3_groovim.description = '임선호 시그니처 A3 Groovim의 RAT 계열 재해석 설명과 Gain·Volume·Filter 조작을 참고했습니다. 고역을 역방향 Filter로 감쇠하는 별도 하드 클리핑 근사입니다. Groovim 808과는 다른 모델이며 실제 회로나 페달 실측은 아닙니다.';
+for (const [id, label] of [['a3_angel', 'Angel'], ['a3_awesome', 'Awesome'], ['a3_groovim', 'Groovim']]) CATALOG_MODELS[id].shortName = label;
 for (const id of ['dd200','dd500']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, 5, 0, ''];
   CATALOG_MODELS[id].description += ' 공개 모드 중 Digital, Analog, Tape, Dual, Mod, Ambient의 여섯 가지를 단순화해 제공합니다.';
