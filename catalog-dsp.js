@@ -43,6 +43,57 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     };
     update(); return { update };
   }
+  if (model.engine === 'awesome') {
+    // Product descriptions support a boost-to-overdrive character, not an exact circuit.
+    // A gain-dependent clean path keeps the low-gain attack intact when stacked.
+    const hp = filter('highpass', 65), focus = filter('peaking', 930, .85);
+    focus.gain.value = 1.6;
+    const pre = gain(1), shaper = add(ctx.createWaveShaper());
+    shaper.curve = Float32Array.from({ length: 4096 }, (_, i) => {
+      const x = i * 2 / 4095 - 1;
+      return Math.tanh(x * (x >= 0 ? 2.25 : 1.9)) / Math.tanh(2.25);
+    });
+    shaper.oversample = '4x';
+    const smooth = filter('lowpass', 8100), clean = gain(1), driven = gain(0);
+    const tone = filter('highshelf', 2900), volume = gain(1);
+    input.connect(hp);
+    hp.connect(clean).connect(tone);
+    hp.connect(focus).connect(pre).connect(shaper).connect(smooth).connect(driven).connect(tone);
+    tone.connect(volume).connect(output);
+    const update = () => {
+      const amount = p.gain / 100;
+      parameter(pre.gain, .8 + amount * 8);
+      parameter(clean.gain, .9 - amount * .55);
+      parameter(driven.gain, .09 + amount * .62);
+      parameter(tone.gain, (p.tone - 50) * .16);
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * 1.7 / (1 + amount * .35));
+    };
+    update(); return { update };
+  }
+  if (model.engine === 'groovim') {
+    // RAT-style topology as a voicing reference; A3 component values are unknown.
+    const hp = filter('highpass', 130), weight = filter('peaking', 650, .7);
+    weight.gain.value = 1.5;
+    const pre = gain(1), shaper = add(ctx.createWaveShaper());
+    shaper.curve = Float32Array.from({ length: 4096 }, (_, i) => {
+      const x = i * 2 / 4095 - 1;
+      // Rounded hard-clipping knee retains a little more attack than the generic RAT voice.
+      return Math.max(-.86, Math.min(.86, x * 2.8)) / .86;
+    });
+    shaper.oversample = '4x';
+    const cutoff = filter('lowpass', 5500), body = filter('lowshelf', 180), volume = gain(1);
+    body.gain.value = 1.2;
+    input.connect(hp).connect(weight).connect(pre).connect(shaper)
+      .connect(cutoff).connect(body).connect(volume).connect(output);
+    const update = () => {
+      const amount = p.gain / 100;
+      parameter(pre.gain, .7 + amount * 12);
+      // RAT-style Filter: turning clockwise removes more high frequencies.
+      parameter(cutoff.frequency, 8600 - p.filter * 68);
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * .95 / (1 + amount * .7));
+    };
+    update(); return { update };
+  }
   if (model.engine === 'drive') {
     const v = DRIVE_VOICES[voice], hp = filter('highpass', v.hp), mid = filter('peaking', 900, .8);
     mid.gain.value = v.mid * 4;

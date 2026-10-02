@@ -16,6 +16,7 @@
 | Fulltone OCD | [Aion Titan](https://aionfx.com/project-category/overdrive/), 프로젝트의 `ocd-schematic-analysis.png` | 현재 HP/LP 스위치 구현을 회로와 대조. 하드 클리핑과 후단 EQ. |
 | Vemuram Jan Ray | 사용자가 제공한 참고 자료 및 기존 `jan-ray-worklet.js` | 공개 회로와 버전 확인 전에는 현재 모델을 근사형으로 표시. |
 | A3 Stompbox Angel | [제조사 제품·조작 설명](https://a3stompbox.imweb.me/19) | JCM800에 영감을 받은 음색과 Volume·Gain·Bass·Treble 조작을 참고한 독립 DSP 근사. Angel의 부품별 회로는 확인되지 않아 회로 복제라고 표시하지 않음. |
+| A3 Stompbox Awesome | [제조사 제품](https://a3stompbox.imweb.me/shop_view/?idx=2), [Aion Refractor 제작 문서](https://aionfx.com/app/files/docs/refractor_documentation.pdf) | 공개된 Awesome 부품별 회로는 확인되지 않음. 부스트부터 자연스러운 드라이브까지의 제품 설명과 클론 계열 클린/클립 블렌드를 **보이싱 참고**로 사용. Awesome의 회로와 동일하다는 뜻은 아님. |
 | Greer Lightspeed / Paul Cochrane Timmy / Hermida Zendrive | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/) | 저게인·톤 성격이 달라 TS의 파라미터 변형으로 묶지 않기. |
 
 ## 드라이브: 디스토션과 퍼즈
@@ -23,6 +24,7 @@
 | 페달 | 공개 자료 | Web Effecter 구현 관점 |
 | --- | --- | --- |
 | Pro Co RAT (초기형) | [ElectroSmash 원작성 회로 분석](https://electrosmash.com/proco-rat), [Aion Helios 파생 회로](https://aionfx.com/project/helios-vintage-distortion/) | 고게인 연산증폭기, 접지 방향 다이오드 클리핑, 역방향 Filter. RAT2·Turbo RAT을 초기형과 혼동하지 않기. |
+| A3 Stompbox Groovim (원형 Distortion) | [제조사 제품](https://a3stompbox.imweb.me/shop_view/?idx=3), [제품 조작 설명](https://reverb.com/item/39993317-a3-stompbox-groovim-distortion), [Aion Helios 제작 문서](https://aionfx.com/project/helios-vintage-distortion/) | RAT을 재해석했다는 설명과 Gain·Volume·Filter를 참고한 별도 DSP 근사. A3 부품값과 클리핑 소자는 공개 회로로 확인하지 못함. Groovim 808은 다른 제품이므로 혼동하지 않기. |
 | BOSS DS-1 | [ElectroSmash 회로 분석](https://www.electrosmash.com/boss-ds1-analysis), [Aion Comet](https://aionfx.com/project-category/overdrive/) | 트랜지스터 증폭·하드 클리핑·톤 스택. 회로 개정별 차이 있음. |
 | MXR Distortion+ | [ElectroSmash 회로 분석](https://electrosmash.com/mxr-distortion-plus-analysis) | 단순한 연산증폭기와 다이오드 하드 클리핑의 기준 모델. |
 | BOSS HM-2 / Marshall Guv'nor / Shredmaster / Suhr Riot | [Aion 드라이브 목록](https://aionfx.com/project-category/overdrive/), [Guv'nor 회로 분석](https://electrosmash.com/marshall-guvnor-analysis) | 각각 다른 EQ가 음색의 핵심. |

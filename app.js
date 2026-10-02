@@ -1,5 +1,5 @@
-import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=angel-1';
-import { makeCatalogUnit } from './catalog-dsp.js?v=angel-1';
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=a3-stack-1';
+import { makeCatalogUnit } from './catalog-dsp.js?v=a3-stack-1';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
