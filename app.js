@@ -1,5 +1,5 @@
-import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=catalog-3';
-import { makeCatalogUnit } from './catalog-dsp.js?v=catalog-1';
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=catalog-4';
+import { makeCatalogUnit } from './catalog-dsp.js?v=catalog-4';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
@@ -550,7 +550,7 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
-    await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=catalog-1', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=catalog-4', import.meta.url));
     sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createDynamicsCompressor(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
     inputAnalyser.fftSize = outputAnalyser.fftSize = 1024;
     inputGain.gain.value = 10 ** (+$('input-trim').value / 20);
