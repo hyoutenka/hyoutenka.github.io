@@ -28,7 +28,7 @@
 
 바이올린 IR은 [Alex Harker의 OctetViolins](https://github.com/AlexHarker/OctetViolins) `resources/IRs/Gras_Pair_01_Treble.wav`를 고정 커밋에서 불러옵니다. 실제 Violin Octet 악기의 응답을 사용한 연구용 플러그인의 자료이며 [BSD 3-Clause 라이선스](irs/LICENSE-OctetViolins.txt)를 함께 표시합니다. 외부 파일을 불러오지 못하면 IR 블록은 드라이 신호를 통과시키고 오류를 표시합니다.
 
-각 슬롯의 이펙트 선택 화면은 **Compressor / Drive / Delay / Reverb / Mod / SAW / Synth / Amp / IR / EQ** 대분류로 나뉩니다. Compressor에는 기본 Compressor와 Ibanez CP10 모델, Drive에는 기본 Overdrive와 Jan Ray 및 OCD 모델이 있습니다. Mod에는 Chorus와 Tremolo가 있습니다. SAW는 바이올린 프리셋용 톱니파 추적기이며, Synth는 Sine/Triangle/Square를 선택하는 별도의 단음 추적 신시사이저입니다. Amp는 간단한 프리앰프 소프트 클리핑 모델이고, 스피커 응답은 필요하면 IR 블록을 뒤에 연결합니다.
+각 슬롯의 이펙트 선택 화면은 **Compressor / Drive / Delay / Reverb / Mod / SAW / Synth / Amp / IR / EQ** 대분류로 나뉩니다. Drive 안에는 오버드라이브·디스토션·퍼즈를 구분합니다. 녹색은 지금 선택할 수 있는 오디오 모델, 금색은 앞으로 추가할 후보입니다. [회로 및 DSP 자료 카탈로그](docs/pedal-circuit-catalog.md)에 나오는 모델 가운데 58개를 회로의 일반적인 토폴로지 또는 공식 기능을 참고한 **독립 DSP 근사**로 추가했습니다. 이 중 디지털 페달의 제조사 펌웨어와 모든 모드/파라미터를 복제한 것은 아니며, DD-200/500은 여섯 종류의 대표적인 딜레이 계열을 제공합니다. Web Audio 기본 블록과 `catalog-pitch-worklet.js`의 독립적인 피치 변환을 사용하며 피치 모델에는 약 30–85 ms 처리 창에 따른 지연이 있습니다. 기존 Jan Ray·OCD·CP10 모델과 SAW/Synth/Amp/IR도 계속 선택할 수 있습니다.
 
 Amp에는 기존 기본 Amp 외에 **AC10 / Deluxe Reverb / JCM Capture**가 있습니다. 이 세 모델은 [TONE3000의 NAM WebAssembly 예제 저장소](https://github.com/tone-3000/neural-amp-modeler-wasm)에 공개된 `.nam` 파일을 해당 저장소의 고정 커밋에서 브라우저로 불러옵니다. 이 저장소의 `deluxe.nam`은 **Fender Deluxe Reverb**로 표기된 모델이며 Tweed 5E3 앰프 캡처는 아닙니다. 브라우저용 NAM 런타임 `neural-amp-modeler-wasm@2.0.1`은 버전이 고정된 jsDelivr 자산에서 가져오며, 서버 측에서 오디오를 처리하지 않습니다. 모델 자체의 캡처 설정은 고정되어 있고 Input trim은 실제 앰프 Gain 노브와 다릅니다. 기본 Output은 캐비닛 IR에서 줄어드는 레벨을 고려해 +6 dB로 설정했습니다.
 
