@@ -26,7 +26,7 @@
 
 바이올린 음색을 시험하려면 노드에서 **Compressor → SAW Synth → IR → EQ → Chorus → Reverb**를 직접 배치하세요. SAW Synth는 단음 입력의 기본 주파수를 추적해 SAW를 합성하며, **Attack**으로 소리가 시작되는 속도를 조절합니다. SAW와 IR을 함께 배치하면 실제 바이올린 계열의 몸통 공명을 측정한 **Violin Octet · Treble (Gras 스테레오)** IR이 자동 선택됩니다. IR 블록에서 캐비닛·다른 악기 IR이나 사용자 WAV로 바꿀 수 있습니다. V 키 또는 VIOLIN 버튼으로 SAW와 IR을 함께 켜고 끕니다. 이 IR은 바이올린의 공명 특성만 적용하며 활 마찰음이나 연주 표현까지 만들지는 않습니다. 화음·잡음·급격한 음 전환에서는 피치 인식이 불안정할 수 있습니다. 오디오 파일과 IR은 브라우저 안에서만 처리하며 업로드하지 않습니다.
 
-바이올린 IR은 [Alex Harker의 OctetViolins](https://github.com/AlexHarker/OctetViolins) `resources/IRs/Gras_Pair_01_Treble.wav`를 고정 커밋에서 불러옵니다. 실제 Violin Octet 악기의 응답을 사용한 연구용 플러그인의 자료이며 [BSD 3-Clause 라이선스](irs/LICENSE-OctetViolins.txt)를 함께 표시합니다. 외부 파일을 불러오지 못하면 IR 블록은 드라이 신호를 통과시키고 오류를 표시합니다.
+바이올린 IR은 [Alex Harker의 OctetViolins](https://github.com/AlexHarker/OctetViolins)의 Gras 스테레오 응답(Treble·Soprano·Alto·Bass)을 사이트에 포함합니다. 실제 Violin Octet 악기의 공명을 사용한 연구용 플러그인의 자료이며 [BSD 3-Clause 라이선스](irs/LICENSE-OctetViolins.txt)를 함께 표시합니다. 또 [Conner의 IR-Library](https://github.com/itsmusician/IR-Library)의 Violin Body Resonant 응답을 포함하며 [MIT 라이선스](irs/LICENSE-IR-Library.txt)를 보관합니다. 전자바이올린 전용 IR이라고 부르지 않습니다. 기타 DI의 SAW 변환에 바이올린 바디의 선형 공명을 더하는 실험이며 활의 마찰이나 연주법을 재현하지는 않습니다. IR 파일을 불러오지 못하면 블록은 드라이 신호를 통과시키고 오류를 표시합니다.
 
 각 슬롯의 이펙트 선택 화면은 **Compressor / Drive / Delay / Reverb / Mod / SAW / Synth / Amp / IR / EQ** 대분류로 나뉩니다. Drive 안에는 오버드라이브·디스토션·퍼즈를 구분합니다. 녹색은 지금 선택할 수 있는 오디오 모델, 금색은 앞으로 추가할 후보입니다. [회로 및 DSP 자료 카탈로그](docs/pedal-circuit-catalog.md)에 나오는 모델 가운데 58개를 회로의 일반적인 토폴로지 또는 공식 기능을 참고한 **독립 DSP 근사**로 추가했습니다. 이 중 디지털 페달의 제조사 펌웨어와 모든 모드/파라미터를 복제한 것은 아니며, DD-200/500은 여섯 종류의 대표적인 딜레이 계열을 제공합니다. Web Audio 기본 블록과 `catalog-pitch-worklet.js`의 독립적인 피치 변환을 사용하며 피치 모델에는 약 30–85 ms 처리 창에 따른 지연이 있습니다. 기존 Jan Ray·OCD·CP10 모델과 SAW/Synth/Amp/IR도 계속 선택할 수 있습니다.
 
@@ -37,10 +37,12 @@ Amp에는 기존 기본 Amp 외에 **AC10 / Deluxe Reverb / JCM Capture**가 있
 | 프리셋 | 자동 선택되는 IR |
 | --- | --- |
 | AC10 | Vox AC30 2×12 · SM57 중간 거리 |
-| Deluxe Reverb | Fender Tweed 1×12 · SM57 중간 거리 |
+| Deluxe Reverb | Fender Deluxe 1×12 · SM57 중간 거리 |
 | JCM | Marshall 1960 4×12 · SM57 중간 거리 |
 
-세 캐비닛 WAV는 [CabImpulse](https://github.com/DCisHurt/CabImpulse)의 내장 48 kHz 녹음 자료에서 추출했습니다. 원저작자 Roger Chen의 [MIT 라이선스](irs/LICENSE-CabImpulse.txt)를 함께 보관합니다. 앰프 캡처와 캐비닛 IR은 각각 별도 출처이며, AC10의 캐비닛은 같은 Vox 계열의 AC30 2×12로 골랐습니다. Fender 프리셋도 Deluxe Reverb 앰프에 Tweed 캐비닛을 조합한 것이지 Tweed 앰프 자체가 아닙니다. 실제 캡처 당시 사용한 캐비닛과 동일하다고 보장하는 매칭은 아닙니다. IR 노드에서 다른 IR이나 사용자가 가진 WAV 파일로 교체할 수도 있습니다. 외부 NAM 자산을 불러오지 못할 때 NAM 블록은 원음을 통과시키고 오류를 표시합니다. 브라우저 오디오 엔진은 모델의 기본 샘플레이트에 맞춰 48 kHz로 엽니다.
+기타·베이스 캐비닛 21종은 [CabImpulse](https://github.com/DCisHurt/CabImpulse)의 내장 48 kHz 녹음 자료에서 SM57 중간 거리 응답을 캐비닛별 하나씩 추출했습니다. Vox AC30·Fender Deluxe·Marshall 1960을 포함해 Marshall 1936·1960AHW·1970, Line 6 Vetta, ENGL Pro, Randall RS412XLT100, Krank Krankenstein, Bogner Uberkab, Mesa Standard, Orange 4×12, Genz Benz G-Flex, Fender Super Reverb, Roland JC-120, Supro Thunderbolt, Ampeg SVT·Portaflex, Aguilar DB, Gallien-Krueger Neo를 제공합니다. 여러 마이크·위치·샘플레이트 변형은 중복으로 등록하지 않았습니다. 원저작자 Roger Chen의 [MIT 라이선스](irs/LICENSE-CabImpulse.txt)를 함께 보관합니다. 앰프 캡처와 캐비닛 IR은 각각 별도 출처이며, AC10의 캐비닛은 같은 Vox 계열의 AC30 2×12로 골랐습니다. 실제 캡처 당시 사용한 캐비닛과 동일하다고 보장하는 매칭은 아닙니다. IR 노드에서 다른 IR이나 사용자가 가진 WAV 파일로 교체할 수도 있습니다. 외부 NAM 자산을 불러오지 못할 때 NAM 블록은 원음을 통과시키고 오류를 표시합니다. 브라우저 오디오 엔진은 모델의 기본 샘플레이트에 맞춰 48 kHz로 엽니다.
+
+전자바이올린용으로 명시된 [pe_mace의 CC0 IR](https://freesound.org/people/pe_mace/sounds/696523/)도 확인했지만 Freesound 계정 로그인이 필요한 원본 다운로드라 기본 선택기에 포함하지 않았습니다. 권한 있는 원본 WAV가 있으면 IR 파일 불러오기로 적용할 수 있습니다. 같은 악기의 IR은 모두 좋은 소리를 보장하지 않으며 입력 악기·픽업과 녹음 조건에 따라 결과가 달라집니다.
 
 `Jan Ray circuit` 프리셋은 사용자가 제공한 **Vemuram Jan Ray V1.0 회로도**를 토대로 만든 별도의 드라이브 블록입니다. 47 nF 입력 커플링과 1 MΩ 바이어스 저항, LM4558 비반전 증폭기의 가변 피드백 저항과 서로 반대 방향의 1N4148 직렬 다이오드 쌍, 47 pF 피드백 커패시터, 10 kΩ Treble·1.2 kΩ·47 nF 필터, 후단 약 2배 증폭과 1 µF 출력 커플링을 근사합니다. Gain, Bass, Treble, 내부 Trim, Volume을 조절할 수 있습니다. Bass/Trim의 복잡한 주파수 의존 피드백망은 단순화한 저역 차단과 입력 저항으로 근사했으며, 전원회로와 부품 편차 및 실제 기타 픽업 임피던스까지 SPICE 수준으로 재현한 모델은 아닙니다. 브라우저 입력 레벨은 실물 회로의 전압으로 보정되지 않아 실제 페달과 같은 노브 위치에서 동일한 음색을 보장하지 않습니다.
 

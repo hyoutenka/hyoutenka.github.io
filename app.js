@@ -9,15 +9,54 @@ const NAM_MODELS = {
   nam_jcm: { name: 'JCM Capture', file: 'jcm.nam', ir: 'marshall_1960', note: '강한 미드레인지의 브리티시 드라이브 계열' }
 };
 const NAM_MODEL_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/models/';
-const CAB_IR_BASE = 'https://raw.githubusercontent.com/tone-3000/neural-amp-modeler-wasm/a6c895049771bacc40c74dfa19369c2ebf75cdb1/ui/public/irs/';
+const CAB_SOURCE = 'https://github.com/DCisHurt/CabImpulse';
+const VIOLIN_SOURCE = 'https://github.com/AlexHarker/OctetViolins';
+const CONNER_SOURCE = 'https://github.com/itsmusician/IR-Library';
 const CAB_IRS = {
-  vox_ac30: { name: 'Vox AC30 2×12 · SM57', url: './irs/vox-ac30-2x12-sm57-mid.wav' },
-  fender_deluxe: { name: 'Fender Tweed 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav' },
-  marshall_1960: { name: 'Marshall 1960 4×12 · SM57', url: './irs/marshall-1960-4x12-sm57-mid.wav' },
-  violin_treble: { name: 'Violin Octet · Treble (Gras 스테레오)', url: 'https://raw.githubusercontent.com/AlexHarker/OctetViolins/f4f4c062fe0374a71272ebab252f6ecb5e54b440/resources/IRs/Gras_Pair_01_Treble.wav' },
-  celestion: { name: 'Celestion 예제', url: CAB_IR_BASE + 'celestion.wav' },
-  mesa: { name: 'Mesa 예제', url: CAB_IR_BASE + 'mesa.wav' }
+  vox_ac30: { name: 'Vox AC30 2×12 · SM57', url: './irs/vox-ac30-2x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  fender_deluxe: { name: 'Fender Deluxe 1×12 · SM57', url: './irs/fender-deluxe-1x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  marshall_1960: { name: 'Marshall 1960 4×12 · SM57', url: './irs/marshall-1960-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  marshall_1936: { name: 'Marshall 1936 2×12 · SM57', url: './irs/marshall-1936-2x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  marshall_1960ahw: { name: 'Marshall 1960AHW 4×12 · SM57', url: './irs/marshall-1960ahw-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  marshall_1970: { name: 'Marshall 1970 4×12 · SM57', url: './irs/marshall-1970-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  line6_vetta: { name: 'Line 6 Vetta 4×12 · SM57', url: './irs/line6-vetta-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  engl_pro: { name: 'ENGL Pro 4×12 · SM57', url: './irs/engl-pro-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  randall_rs412: { name: 'Randall RS412XLT100 4×12 · SM57', url: './irs/randall-rs412-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  krank_krankenstein: { name: 'Krank Krankenstein 4×12 · SM57', url: './irs/krank-krankenstein-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  bogner_uberkab: { name: 'Bogner Uberkab 4×12 · SM57', url: './irs/bogner-uberkab-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  mesa_standard: { name: 'Mesa Standard 4×12 · SM57', url: './irs/mesa-standard-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  orange_412: { name: 'Orange 4×12 · SM57', url: './irs/orange-4x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  genz_gflex: { name: 'Genz Benz G-Flex 2×12 · SM57', url: './irs/genz-gflex-2x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  fender_super: { name: 'Fender Super Reverb 4×10 · SM57', url: './irs/fender-super-reverb-4x10-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  roland_jc120: { name: 'Roland JC-120 2×12 · SM57', url: './irs/roland-jc120-2x12-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  supro_thunderbolt: { name: 'Supro Thunderbolt 1×15 · SM57', url: './irs/supro-thunderbolt-1x15-sm57-mid.wav', group: '기타 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  ampeg_svt: { name: 'Ampeg SVT 8×10 · SM57', url: './irs/ampeg-svt-8x10-sm57-mid.wav', group: '베이스 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  ampeg_portaflex: { name: 'Ampeg Portaflex 1×15 · SM57', url: './irs/ampeg-portaflex-1x15-sm57-mid.wav', group: '베이스 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  aguilar_db: { name: 'Aguilar DB 4×12 · SM57', url: './irs/aguilar-db-4x12-sm57-mid.wav', group: '베이스 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  gallien_neo: { name: 'Gallien-Krueger Neo 4×10 · SM57', url: './irs/gallien-neo-4x10-sm57-mid.wav', group: '베이스 캐비닛', source: CAB_SOURCE, license: 'MIT' },
+  violin_treble: { name: 'Violin Octet · Treble (Gras 스테레오)', url: './irs/octet-treble-gras.wav', group: '바이올린 바디', source: VIOLIN_SOURCE, license: 'BSD-3-Clause' },
+  violin_soprano: { name: 'Violin Octet · Soprano (Gras 스테레오)', url: './irs/octet-soprano-gras.wav', group: '바이올린 바디', source: VIOLIN_SOURCE, license: 'BSD-3-Clause' },
+  violin_alto: { name: 'Violin Octet · Alto (Gras 스테레오)', url: './irs/octet-alto-gras.wav', group: '바이올린 바디', source: VIOLIN_SOURCE, license: 'BSD-3-Clause' },
+  violin_bass: { name: 'Violin Octet · Bass (Gras 스테레오)', url: './irs/octet-bass-gras.wav', group: '바이올린 바디', source: VIOLIN_SOURCE, license: 'BSD-3-Clause' },
+  violin_body: { name: '바이올린 바디 · Resonant (Conner)', url: './irs/violin-body-resonant.wav', group: '바이올린 바디', source: CONNER_SOURCE, license: 'MIT' }
 };
+const irSelect = $('ir-library');
+for (const group of ['기타 캐비닛', '베이스 캐비닛', '바이올린 바디']) {
+  const optgroup = document.createElement('optgroup');
+  optgroup.label = group;
+  for (const [key, ir] of Object.entries(CAB_IRS)) {
+    if (ir.group !== group) continue;
+    optgroup.add(new Option(ir.name, key));
+  }
+  irSelect.insertBefore(optgroup, irSelect.querySelector('option[value="none"]'));
+}
+function updateIRSource() {
+  const ir = CAB_IRS[irSelection], link = $('ir-source');
+  link.hidden = !ir;
+  if (!ir) return;
+  link.href = ir.source;
+  link.textContent = `IR 출처 · ${new URL(ir.source).pathname.slice(1)} (${ir.license})`;
+}
 const EFFECTS = {
   compressor: { name: 'Compressor', category: 'DYNAMICS', symbol: '◫', description: '연주의 큰 소리와 작은 소리 차이를 줄입니다.', params: { threshold: ['Threshold', -40, 0, -22, 'dB'], ratio: ['Ratio', 1, 12, 4, ':1'] } },
   cp10: { name: 'CP10 Circuit', category: 'VCA COMPRESSOR', symbol: '▤', description: '첨부된 Ibanez CP10 회로 기반 근사: BA6110 가변 이득 증폭기와 정류·타이밍 회로를 모델링했습니다. Sustain은 압축 감도, Attack은 시작 속도, Level은 출력량을 조절합니다.', params: { sustain: ['Sustain', 0, 100, 55, '%'], attack: ['Attack', 0, 100, 40, '%'], level: ['Level', 0, 100, 65, '%'] } },
@@ -311,14 +350,7 @@ function renderEditor() {
   }));
   $('ir-panel').hidden = slot.type !== 'ir';
   if (slot.type === 'ir') $('ir-library').value = irSelection;
-  $('ir-source').hidden = slot.type !== 'ir' || !['vox_ac30', 'fender_deluxe', 'marshall_1960', 'violin_treble'].includes(irSelection);
-  if (irSelection === 'violin_treble') {
-    $('ir-source').href = 'https://github.com/AlexHarker/OctetViolins';
-    $('ir-source').textContent = '바이올린 IR 출처 · OctetViolins (BSD 3-Clause)';
-  } else {
-    $('ir-source').href = 'https://github.com/DCisHurt/CabImpulse';
-    $('ir-source').textContent = '캐비닛 IR 출처 · CabImpulse (MIT)';
-  }
+  updateIRSource();
   $('nam-panel').hidden = !NAM_MODELS[slot.type];
   if (NAM_MODELS[slot.type]) { $('nam-source').href = NAM_SOURCE; $('nam-status').textContent = namMessages.get(slot) || (ctx ? '모델을 불러오는 중…' : '오디오 시작을 누르면 모델을 불러옵니다.'); }
 }
@@ -661,9 +693,7 @@ async function loadLibraryIR(selection) {
 }
 $('ir-library').onchange = async (event) => {
   irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom();
-  $('ir-source').hidden = !['vox_ac30', 'fender_deluxe', 'marshall_1960', 'violin_treble'].includes(irSelection);
-  $('ir-source').href = irSelection === 'violin_treble' ? 'https://github.com/AlexHarker/OctetViolins' : 'https://github.com/DCisHurt/CabImpulse';
-  $('ir-source').textContent = irSelection === 'violin_treble' ? '바이올린 IR 출처 · OctetViolins (BSD 3-Clause)' : '캐비닛 IR 출처 · CabImpulse (MIT)';
+  updateIRSource();
   if (CAB_IRS[irSelection]) { $('ir-name').textContent = 'IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
   else { $('ir-name').textContent = irSelection === 'none' ? 'IR을 사용하지 않습니다.' : '데모용 합성 바디 IR을 적용했습니다.'; notify($('ir-name').textContent); }
 };
