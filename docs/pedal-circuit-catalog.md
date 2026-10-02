@@ -1,0 +1,80 @@
+# Web Effecter — 페달 회로 및 DSP 자료 카탈로그
+
+조사일: 2026-10-02. `회로`는 부품값이 표시된 공개 회로도나 이를 포함한 제작 문서, `제품`은 공식 기능·조작 설명을 뜻합니다. Aion FX 문서는 **Aion이 그린 개조/복각 회로**이며 해당 제조사의 공식 원본 회로도가 아닙니다. 원형과 개정판 사이의 부품값과 기능은 다를 수 있습니다. 링크된 이미지·PDF·코드를 프로젝트에 복제할 때에는 각각의 라이선스를 확인합니다.
+
+## 드라이브: 오버드라이브
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| Ibanez TS Mini | [Ibanez 제품](https://www.ibanez.com/eu/products/detail/ts_mini_01.html), [TS808 회로 분석](https://electrosmash.com/tube-screamer-analysis), [TS9 파생 회로](https://aionfx.com/project-category/overdrive/) | Mini 자체의 정확한 부품별 공식 회로는 확인되지 않음. TS 계열의 피드백 다이오드 클리핑·저역 컷·미드 강조를 기본으로 하고 Mini와 같다고 단정하지 않기. |
+| Ibanez TS808 / TS9 | [TS808 회로 분석](https://electrosmash.com/tube-screamer-analysis), [Aion Stratus](https://aionfx.com/project-category/overdrive/) | 회로 기반 첫 구현 후보. TS808과 TS9의 출력을 포함한 개정 차이 확인. |
+| BOSS OD-1 / SD-1 / OD-3 | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/), [OD-3 파생 회로](https://aionfx.com/project/heliodor-amp-overdrive/) | 비대칭 피드백 클리핑(OD-1/SD-1), OD-3은 별도 토폴로지. |
+| BOSS BD-2 Blues Driver | [Aion Sapphire](https://aionfx.com/project/sapphire-amp-overdrive/) | 다단 증폭, 게인·톤 동작을 별도 모델로. |
+| Klon Centaur / KTR | [Aion Refractor 회로·분석](https://aionfx.com/project/refractor-professional-overdrive/) | 클린/왜곡 경로 혼합과 게인에 따른 필터 변화를 모델링. |
+| Nobels ODR-1 | [Aion Andromeda](https://aionfx.com/project-category/overdrive/) | 저역 보존과 Spectrum 성격을 별도 보이싱으로. |
+| Marshall Bluesbreaker / Analogman King of Tone | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/) | Bluesbreaker 토폴로지와 2단 직렬 KoT 파생형을 구분. |
+| Fulltone OCD | [Aion Titan](https://aionfx.com/project-category/overdrive/), 프로젝트의 `ocd-schematic-analysis.png` | 현재 HP/LP 스위치 구현을 회로와 대조. 하드 클리핑과 후단 EQ. |
+| Vemuram Jan Ray | 사용자가 제공한 참고 자료 및 기존 `jan-ray-worklet.js` | 공개 회로와 버전 확인 전에는 현재 모델을 근사형으로 표시. |
+| Greer Lightspeed / Paul Cochrane Timmy / Hermida Zendrive | [Aion 오버드라이브 목록](https://aionfx.com/project-category/overdrive/) | 저게인·톤 성격이 달라 TS의 파라미터 변형으로 묶지 않기. |
+
+## 드라이브: 디스토션과 퍼즈
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| Pro Co RAT (초기형) | [ElectroSmash 원작성 회로 분석](https://electrosmash.com/proco-rat), [Aion Helios 파생 회로](https://aionfx.com/project/helios-vintage-distortion/) | 고게인 연산증폭기, 접지 방향 다이오드 클리핑, 역방향 Filter. RAT2·Turbo RAT을 초기형과 혼동하지 않기. |
+| BOSS DS-1 | [ElectroSmash 회로 분석](https://www.electrosmash.com/boss-ds1-analysis), [Aion Comet](https://aionfx.com/project-category/overdrive/) | 트랜지스터 증폭·하드 클리핑·톤 스택. 회로 개정별 차이 있음. |
+| MXR Distortion+ | [ElectroSmash 회로 분석](https://electrosmash.com/mxr-distortion-plus-analysis) | 단순한 연산증폭기와 다이오드 하드 클리핑의 기준 모델. |
+| BOSS HM-2 / Marshall Guv'nor / Shredmaster / Suhr Riot | [Aion 드라이브 목록](https://aionfx.com/project-category/overdrive/), [Guv'nor 회로 분석](https://electrosmash.com/marshall-guvnor-analysis) | 각각 다른 EQ가 음색의 핵심. |
+| EHX Big Muff Pi / Op-Amp Big Muff | [Aion Halo](https://aionfx.com/project/halo-distortion-sustainer/), [Aion Fuzz 목록](https://aionfx.com/project-category/fuzz/) | 연쇄 트랜지스터 클리핑 및 톤 스택; 오퍼앰프형 별도. UI에는 Fuzz 하위 분류 권장. |
+| Dallas-Arbiter Fuzz Face / Tone Bender Mk II | [Aion Fuzz 목록](https://aionfx.com/project-category/fuzz/) | 트랜지스터 비선형성과 기타 볼륨/입력 임피던스 상호작용 중요. |
+| ZVEX Fuzz Factory / Univox Super-Fuzz | [Aion Fuzz 목록](https://aionfx.com/project-category/fuzz/) | 게이트·바이어스 및 옥타브 퍼즈를 별도 모델로. |
+
+## 컴프레서, EQ, 필터
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| Ibanez CP10 | 사용자가 제공한 회로도 `upload/스크린샷 2026-09-30 000345.png`; 기존 `cp10-worklet.js` | 회로 이미지 출처·개정 확인 후 어택/릴리스·게인 리덕션 검증. Drive가 아닌 Compressor. |
+| MXR Dyna Comp / Ross Compressor | [Aion Aurora 회로 PDF](https://aionfx.com/app/files/docs/aurora_documentation.pdf), [분석](https://aionfx.com/project/aurora-compressor-sustainer/) | OTA 계열 압축, 엔벌로프와 메이크업 게인. |
+| Keeley Compressor Plus | [Aion 압축/EQ 목록](https://aionfx.com/project-category/compression-eq/) | 컴프레서에 클린 블렌드 및 톤. |
+| Dunlop Cry Baby GCB-95 / Mu-Tron III | [Cry Baby 회로 분석](https://electrosmash.com/crybaby-gcb-95), [Aion 모듈레이션 목록](https://aionfx.com/project-category/modulation-delay/) | 와우는 가변 공진 필터, 엔벌로프 필터는 연주 세기에 반응. |
+
+## MOD: 코러스·페이저·플랜저·트레몰로·피치
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| BOSS CE-2 / EHX Small Clone | [Aion 모듈레이션 목록과 제작 문서](https://aionfx.com/project-category/modulation-delay/) | BBD 지연을 LFO로 변조하고 원음과 혼합. |
+| MXR Phase 90 / EHX Small Stone / Uni-Vibe | [Aion 모듈레이션 목록과 제작 문서](https://aionfx.com/project-category/modulation-delay/) | 다단 all-pass 또는 광학 변조. 각 페달의 단계 수와 피드백을 구분. |
+| BOSS BF-2 Flanger / DC-2 Dimension C | [Aion 모듈레이션 목록과 제작 문서](https://aionfx.com/project-category/modulation-delay/) | 짧은 지연·피드백, DC-2는 별도 다중 변조. |
+| BOSS TR-2 | [BOSS 제품·조작 자료](https://www.boss.info/global/products/tr-2/) | Rate, Depth, Wave의 LFO 진폭 변조. 공식 회로도는 이 조사에서 확보하지 못함. |
+| 4ms Tremulus Lune | [Aion Luna 회로 PDF](https://aionfx.com/app/files/docs/luna_documentation.pdf) | 파형 대칭성까지 조절 가능한 아날로그 광학 트레몰로 참고. |
+| DigiTech Whammy | [DigiTech 제품과 매뉴얼](https://digitech.com/dp/whammy/) | 실시간 피치 변화·하모니. 회로도만으로 원 DSP 알고리즘은 재현할 수 없음. |
+| EHX Pitch Fork / BOSS PS-6 | [EHX 제품](https://www.ehx.com/products/pitch-fork/), [BOSS 제품](https://www.boss.info/us/products/ps-6/) | 폴리포닉 피치, 믹스, 음정 선택. 제품 자료 기준의 DSP 설계 대상. |
+
+## 딜레이
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| BOSS DD-200 / DD-500 | [DD-200 제품·12모드](https://www.boss.info/global/products/dd-200/), [DD-200 매뉴얼](https://www.boss.info/global/support/by_product/dd-200/), [DD-500 제품·12모드](https://www.boss.info/global/products/dd-500/), [DD-500 매뉴얼](https://www.boss.info/global/support/by_product/dd-500/owners_manuals/) | 두 모델의 기능 및 파라미터 참조. 정확한 내부 DSP 코드는 공개 자료에서 확인되지 않음. Digital, Analog, Tape, Reverse, Shimmer 등을 독립 모드로 설계. |
+| BOSS DM-2 | [Aion Amethyst 회로](https://aionfx.com/project/amethyst-analog-delay/) | BBD 피드백의 대역 제한과 반복음 열화. |
+| Ibanez EM5 Echomachine / Deep Blue Delay | [Aion 모듈레이션·딜레이 목록](https://aionfx.com/project-category/modulation-delay/) | 디지털 지연선에 아날로그식 필터·클리핑을 입히는 참고. |
+| PT2399 기반 공개 딜레이 | [ElectroSmash PT2399 분석](https://www.electrosmash.com/pt2399-analysis), [Time Manipulator 공개 회로·BOM](https://www.electrosmash.com/time-manipulator) | 회로와 딜레이 동작을 동시에 연구하기 좋은 기준. |
+
+## 리버브 및 딜레이+리버브
+
+| 페달 | 공개 자료 | Web Effecter 구현 관점 |
+| --- | --- | --- |
+| Horizon Devices Flux Echo | [제조사 모드·조작 설명](https://horizondevices.com/products/flux-echo) | **딜레이+리버브 복합 페달**. 세 조합: clean analog repeat+ambient reverb, reverse delay+modulated reverb, tape echo+shimmer. 회로/내부 DSP 미확인. |
+| EHX Holy Grail Nano | [제조사 제품](https://www.ehx.com/products/holy-grail/), [공식 매뉴얼 PDF](https://www.ehx.com/wp-content/uploads/2021/07/holy-grail-nano-manual.pdf) | Spring, Hall, Flerb. Flerb는 플랜저 성격의 리버브. 내부 알고리즘 미확인. |
+| TC Electronic Hall of Fame 2 | [제조사 제품](https://www.tcelectronic.com/en/products/0709-afs) | 다중 리버브, TonePrint, Shimmer; 사용자 조작을 기준으로 근사 DSP 설계. 내부 TonePrint 알고리즘 미확인. |
+| Strymon blueSky V2 | [제조사 제품](https://www.strymon.net/product/bluesky/), [Strymon 지원 자료](https://www.strymon.net/support/bluesky-v2/) | Plate, Room, Spring, Shimmer. V1/V2 차이를 확인하며 설계. 내부 DSP 미확인. |
+| Strymon Flint | [제조사 제품](https://www.strymon.net/product/flint/) | 트레몰로+리버브 복합 모델 참고. |
+| 공개 DSP 참고 자료 | [FAUST 표준 효과 라이브러리](https://faustlibraries.grame.fr/standardFunctions/), [FAUST pitch/granular 함수](https://faustlibraries.grame.fr/libs/misceffects/), [Spin FV-1 데이터시트](https://www.spinsemi.com/Products/datasheets/spn1001/FV-1.pdf) | 상용 페달의 내부 코드가 아니라 독립 구현을 위한 참고. 코드 재사용 시 라이선스 별도 확인. |
+
+## 추가 후보와 순서
+
+- **먼저 회로 모델 검증:** TS 계열, RAT, DS-1, Klon, Big Muff, Fuzz Face, Phase 90, CE-2, DM-2, Dyna Comp. 여러 공개 분석·제작 회로가 있어 부품값과 신호 경로 비교가 가능하다.
+- **이어서 사용자 지정 페달:** OCD HP/LP, Jan Ray, CP10을 기존 코드와 회로에 대조한다. 사용자 제공 도면의 버전 및 출처를 기록한다.
+- **DSP 독립 구현:** DD-200/500, Flux Echo, Holy Grail, Hall of Fame, blueSky, Whammy/Pitch Fork는 매뉴얼의 기능·조작 범위를 참조하고 자체 딜레이/리버브/피치 엔진으로 구현한다. 화면 표기에는 `영감 받은 모델` 또는 `근사 모델`을 사용한다.
+- **추가 인기군:** EHX Memory Man, BOSS RE-202/RV-6, TC Flashback, Strymon Timeline/BigSky, EQD Dispatch Master, Dunlop Cry Baby, BOSS TU-3/NS-2 등을 같은 기준으로 다음 조사에 넣는다. 이 항목들은 **아직 회로 확인 완료 목록에 포함하지 않는다.**
+
+공개된 회로도는 연구·분석에 쓸 수 있다는 뜻이지 해당 도면이나 제품 사진을 사이트에 재배포할 권리를 자동으로 주지는 않는다. 특히 디지털 페달의 아날로그 입출력 회로가 있어도 DSP 프로그램의 세부 동작은 거기서 알 수 없다.
