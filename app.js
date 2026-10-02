@@ -280,7 +280,7 @@ function renderEditor() {
         holy_grail: ['Spring','Hall','Flerb'],
         hall_of_fame: ['Hall','Room','Plate','Shimmer'],
         bluesky: ['Plate','Room','Spring','Shimmer'],
-        flux_echo: ['Ambient + Clean Echo','Mod Reverb + Echo','Shimmer + Tape'],
+        flux_echo: ['Ambient + Clean Echo','Mod Reverb + Reverse Echo','Shimmer + Tape'],
         flint: ['Spring','Plate','Hall','Room']
       }[slot.type] || [];
       group.innerHTML = `<label for="${id}">${label}</label><select id="${id}"></select>`;
