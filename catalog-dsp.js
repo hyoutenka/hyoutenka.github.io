@@ -146,14 +146,35 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     }; update(); return {update};
   }
   if (model.engine === 'reverb' || model.engine === 'echoverb') {
-    const isEcho = model.engine === 'echoverb';
+    const isFlint = voice === 'flint', isEcho = voice === 'ambient';
     const pre = add(ctx.createDelay(.2)), convolver = add(ctx.createConvolver()), tone = filter('lowpass', 6400);
     const delay = isEcho ? add(ctx.createDelay(1.4)) : null;
     const feedback = isEcho ? gain(.34) : null;
-    if (delay) { input.connect(delay); delay.connect(feedback).connect(delay); delay.connect(pre); }
-    else input.connect(pre);
-    pre.connect(convolver).connect(tone);
-    const {dry,wet} = wetDry(tone, p.mix / 100);
+    const trem = isFlint ? gain(.8) : null, tremLfo = isFlint ? add(ctx.createOscillator()) : null;
+    const tremDepth = isFlint ? gain(.2) : null;
+    if (trem) { input.connect(trem); tremLfo.connect(tremDepth).connect(trem.gain); tremLfo.start(); oscillators.push(tremLfo); }
+    const drySource = trem || input;
+    const forward = gain(1), pitch = ['hall','plate','ambient'].includes(voice) ? add(new AudioWorkletNode(ctx,'catalog-pitch')) : null;
+    const shimmer = pitch ? gain(0) : null;
+    const reverse = isEcho ? add(new AudioWorkletNode(ctx,'catalog-reverse')) : null;
+    const reverseLevel = isEcho ? gain(0) : null;
+    if (delay) {
+      input.connect(forward).connect(delay);
+      input.connect(reverse).connect(reverseLevel).connect(delay);
+      delay.connect(feedback).connect(delay);
+      delay.connect(pre);
+      if (pitch) delay.connect(pitch).connect(shimmer).connect(pre);
+    } else {
+      drySource.connect(forward).connect(pre);
+      if (pitch) drySource.connect(pitch).connect(shimmer).connect(pre);
+    }
+    const flerb = voice === 'spring' ? filter('allpass',850) : null;
+    const flerbLfo = flerb ? add(ctx.createOscillator()) : null, flerbDepth = flerb ? gain(0) : null;
+    if (flerb) { convolver.connect(flerb).connect(tone); flerbLfo.connect(flerbDepth).connect(flerb.frequency); flerbLfo.frequency.value=.42; flerbLfo.start(); oscillators.push(flerbLfo); }
+    else convolver.connect(tone);
+    pre.connect(convolver);
+    const dry=gain(1-p.mix/100), wet=gain(p.mix/100);
+    drySource.connect(dry).connect(output); tone.connect(wet).connect(output);
     if (delay) { const echo = gain(.18); delay.connect(echo).connect(output); }
     let previous = '';
     const update = () => {
@@ -172,7 +193,19 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
       parameter(pre.delayTime, p.predelay / 1000);
       parameter(tone.frequency, 1000 + p.tone * 105);
       parameter(dry.gain, 1-p.mix/100); parameter(wet.gain,p.mix/100);
-      if (delay) { parameter(delay.delayTime, voice === 'flint' ? .095 : mode === 1 ? .52 : .38); parameter(feedback.gain, voice === 'flint' ? .1 : .42); }
+      if (delay) {
+        parameter(delay.delayTime, mode === 1 ? .25 : .38); parameter(feedback.gain,.42);
+        parameter(forward.gain,mode===1 ? 0 : 1); parameter(reverseLevel.gain,mode===1 ? 1 : 0);
+      } else parameter(forward.gain,kind==='shimmer' ? .25 : 1);
+      if (pitch) {
+        pitch.port.postMessage({semitones:12,window:55});
+        parameter(shimmer.gain,kind==='shimmer' ? .7 : 0);
+      }
+      if (flerb) parameter(flerbDepth.gain,kind==='flerb' ? 480 : 0);
+      if (trem) {
+        parameter(trem.gain,1-p.depth/200); parameter(tremDepth.gain,p.depth/200);
+        parameter(tremLfo.frequency,.2+p.rate*.09);
+      }
     }; update(); return {update};
   }
   input.connect(output);
