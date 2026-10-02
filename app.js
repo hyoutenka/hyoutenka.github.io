@@ -1,3 +1,5 @@
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=catalog-1';
+import { makeCatalogUnit } from './catalog-dsp.js?v=catalog-1';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
@@ -37,12 +39,13 @@ for (const [key, model] of Object.entries(NAM_MODELS)) EFFECTS[key] = {
   description: `${model.note}. TONE3000의 공개 NAM 예제 캡처를 실시간으로 처리합니다. Input trim은 캡처에 들어가는 레벨이며 실제 앰프의 Gain 노브가 아닙니다. 캐비닛 소리는 뒤에 IR 블록을 연결하세요.`,
   params: { input: ['Input trim', -18, 18, 0, ' dB'], bass: ['Bass', -12, 12, 0, ' dB'], mid: ['Mid', -12, 12, 0, ' dB'], treble: ['Treble', -12, 12, 0, ' dB'], output: ['Output', -18, 18, 6, ' dB'] }
 };
+Object.assign(EFFECTS, CATALOG_MODELS);
 const CATEGORIES = [
-  { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10'] },
-  { id: 'drive', label: 'Drive', effects: ['drive', 'janray', 'ocd'] },
-  { id: 'delay', label: 'Delay', effects: ['delay'] },
-  { id: 'reverb', label: 'Reverb', effects: ['reverb'] },
-  { id: 'mod', label: 'Mod', effects: ['chorus', 'tremolo'] },
+  { id: 'compressor', label: 'Compressor', effects: ['compressor', 'cp10', ...CATALOG_GROUPS.compressor] },
+  { id: 'drive', label: 'Drive', effects: ['drive', 'janray', 'ocd', ...CATALOG_GROUPS.drive] },
+  { id: 'delay', label: 'Delay', effects: ['delay', ...CATALOG_GROUPS.delay] },
+  { id: 'reverb', label: 'Reverb', effects: ['reverb', ...CATALOG_GROUPS.reverb] },
+  { id: 'mod', label: 'Mod', effects: ['chorus', 'tremolo', ...CATALOG_GROUPS.mod] },
   { id: 'saw', label: 'SAW', effects: ['saw'] },
   { id: 'synth', label: 'Synth', effects: ['synth'] },
   { id: 'amp', label: 'Amp', effects: ['amp', 'nam_ac10', 'nam_deluxe', 'nam_jcm'] },
@@ -53,6 +56,10 @@ const presets = {
   nam_ac10: ['nam_ac10', 'ir', null, null, null, null, null, null],
   nam_deluxe: ['nam_deluxe', 'ir', null, null, null, null, null, null],
   nam_jcm: ['nam_jcm', 'ir', null, null, null, null, null, null]
+};
+const PLANNED_BY_CATEGORY = {
+  delay: ['memory_man','re202','flashback','timeline'],
+  reverb: ['rv6','bigsky','dispatch_master']
 };
 const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.fromEntries(Object.entries(EFFECTS[type].params).map(([k, v]) => [k, v[3]])) : {} });
 let slots = Array.from({ length: 8 }, () => newSlot());
@@ -206,7 +213,7 @@ function renderChain() {
     const meta = slot.type && EFFECTS[slot.type];
     const wrap = document.createElement('div'); wrap.className = 'slot'; wrap.dataset.index = i;
     const button = document.createElement('button'); button.type = 'button';
-    button.className = `node ${meta ? '' : 'empty'} ${selected === i ? 'selected' : ''} ${slot.bypass ? 'off' : ''}`;
+    button.className = `node ${meta ? 'released' : 'empty'} ${selected === i ? 'selected' : ''} ${slot.bypass ? 'off' : ''}`;
     button.setAttribute('aria-label', `${i + 1}번 슬롯, ${meta ? meta.name : '비어 있음'}${slot.bypass ? ', 바이패스' : ''}`);
     if (meta) button.title = '드래그하여 다른 슬롯과 위치 바꾸기';
     button.innerHTML = `<span class="node-number">${String(i + 1).padStart(2, '0')}</span><span class="node-symbol" aria-hidden="true">${meta ? meta.symbol : '+'}</span><span class="node-name">${meta ? meta.name : '이펙트 추가'}</span><span class="node-category">${meta ? meta.category : 'EMPTY SLOT'}</span>${slot.bypass ? '<span class="off-label">OFF</span>' : ''}`;
@@ -266,7 +273,22 @@ function renderEditor() {
     const group = document.createElement('div'); group.className = 'parameter';
     const id = `param-${selected}-${key}`;
     const value = slot.values[key] ?? initial;
-    if (key === 'peak' && slot.type === 'ocd') {
+    if (key === 'mode' && CATALOG_MODELS[slot.type]) {
+      const modes = {
+        dd200: ['Digital','Analog','Tape','Dual','Mod','Ambient'],
+        dd500: ['Digital','Analog','Tape','Dual','Mod','Ambient'],
+        holy_grail: ['Spring','Hall','Flerb'],
+        hall_of_fame: ['Hall','Room','Plate','Shimmer'],
+        bluesky: ['Plate','Room','Spring','Shimmer'],
+        flux_echo: ['Ambient + Clean Echo','Mod Reverb + Echo','Shimmer + Tape'],
+        flint: ['Spring','Plate','Hall','Room']
+      }[slot.type] || [];
+      group.innerHTML = `<label for="${id}">${label}</label><select id="${id}"></select>`;
+      const control = group.querySelector('select');
+      modes.forEach((mode, index) => control.add(new Option(mode, String(index))));
+      control.value = String(value);
+      control.onchange = () => { slot.values[key] = +control.value; markCustom(); const unit = units.find(u => u.slotIndex === selected); if (unit?.update) unit.update(); else rebuild(); };
+    } else if (key === 'peak' && slot.type === 'ocd') {
       group.innerHTML = `<label id="${id}-label" for="${id}">${label}<output>${value ? 'HP' : 'LP'}</output></label><button id="${id}" class="peak-switch ${value ? 'hp' : ''}" type="button" role="switch" aria-checked="${!!value}" aria-labelledby="${id}-label"><span>LP</span><span>HP</span></button>`;
       const control = group.querySelector('button');
       control.onclick = () => {
@@ -309,6 +331,7 @@ function renderLiveSwitch() {
 }
 function render() { renderChain(); renderEditor(); renderLiveSwitch(); }
 function setEffect(type) {
+  if (type && !EFFECTS[type]) return;
   slots[selected] = newSlot(type);
   if ((type === 'ir' && slots.some(slot => slot.type === 'saw')) || (type === 'saw' && slots.some(slot => slot.type === 'ir') && irSelection === 'body')) {
     irSelection = 'violin_treble'; irBuffer = null;
@@ -330,12 +353,27 @@ function renderPicker() {
     button.setAttribute('aria-pressed', String(activeCategory === category.id));
   });
   const category = CATEGORIES.find(item => item.id === activeCategory);
-  $('category-heading').textContent = `${category.label} · ${category.effects.length}개 선택지`;
-  $('effect-grid').replaceChildren(...category.effects.map(key => {
-    const effect = EFFECTS[key], button = document.createElement('button'); button.className = 'effect-option'; button.type = 'button';
-    button.innerHTML = `<span aria-hidden="true">${effect.symbol}</span><strong>${effect.name}</strong><small>${effect.category}</small>`;
-    button.onclick = () => setEffect(key); return button;
-  }));
+  const planned = PLANNED_BY_CATEGORY[category.id] || [];
+  $('category-heading').textContent = `${category.label} · 사용 가능 ${category.effects.length}개 · 준비 중 ${planned.length}개`;
+  const cards = [], labels = {DRIVE:'오버드라이브',DISTORTION:'디스토션',FUZZ:'퍼즈'};
+  let previousGroup = null;
+  for (const key of [...category.effects, ...planned]) {
+    const coming = !!PLANNED_MODELS[key], effect = coming ? PLANNED_MODELS[key] : EFFECTS[key];
+    const group = category.id === 'drive' ? (effect.category === 'DISTORTION' || effect.category === 'FUZZ' ? effect.category : 'DRIVE') : null;
+    if (group && group !== previousGroup) {
+      const heading = document.createElement('h3'); heading.className = 'effect-subheading'; heading.textContent = labels[group]; cards.push(heading);
+      previousGroup = group;
+    }
+    const button = document.createElement('button'); button.className = `effect-option ${coming ? 'planned' : 'released'}`; button.type = 'button';
+    button.disabled = coming;
+    const icon = document.createElement('span'); icon.className = 'effect-icon'; icon.setAttribute('aria-hidden','true'); icon.textContent = effect.symbol;
+    const name = document.createElement('strong'); name.textContent = effect.name;
+    const detail = document.createElement('small'); detail.textContent = coming ? '추가 예정' : (CATALOG_MODELS[key] ? 'DSP 근사 · 사용 가능' : '사용 가능');
+    button.append(icon,name,detail);
+    if (!coming) button.onclick = () => setEffect(key);
+    cards.push(button);
+  }
+  $('effect-grid').replaceChildren(...cards);
   $('clear-slot').hidden = !slots[selected].type;
 }
 $('clear-slot').onclick = () => setEffect(null);
@@ -402,6 +440,10 @@ function makeUnit(slot) {
   const input = ctx.createGain(), output = ctx.createGain(), p = slot.values, nodes = [input, output], oscillators = [];
   if (slot.bypass) { input.connect(output); return { input, output, nodes, oscillators }; }
   const add = (...items) => { nodes.push(...items); return items[0]; };
+  if (CATALOG_MODELS[slot.type]) {
+    const catalog = makeCatalogUnit(ctx, {...slot,catalog:CATALOG_MODELS[slot.type]},input,output,nodes,oscillators,impulse);
+    return {input,output,nodes,oscillators,...catalog};
+  }
   if (NAM_MODELS[slot.type]) {
     const pre = add(ctx.createGain()), bass = add(ctx.createBiquadFilter()), mid = add(ctx.createBiquadFilter()), treble = add(ctx.createBiquadFilter()), post = add(ctx.createGain()), dry = add(ctx.createGain()), wet = add(ctx.createGain());
     bass.type = 'lowshelf'; bass.frequency.value = 180; mid.type = 'peaking'; mid.frequency.value = 800; mid.Q.value = .7; treble.type = 'highshelf'; treble.frequency.value = 2800;
@@ -508,6 +550,7 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=catalog-1', import.meta.url));
     sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createDynamicsCompressor(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
     inputAnalyser.fftSize = outputAnalyser.fftSize = 1024;
     inputGain.gain.value = 10 ** (+$('input-trim').value / 20);
