@@ -111,6 +111,8 @@ for (const id of ['dd200','dd500']) {
 for (const id of ['holy_grail','hall_of_fame','bluesky','flux_echo','flint']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, id === 'flux_echo' ? 2 : id === 'holy_grail' ? 2 : 3, 0, ''];
 }
+CATALOG_MODELS.flint.params.rate = ['Tremolo rate', 1, 120, 38, '%'];
+CATALOG_MODELS.flint.params.depth = ['Tremolo depth', 0, 100, 46, '%'];
 CATALOG_MODELS.whammy.params.semitones[3] = 12;
 CATALOG_MODELS.pitchfork.params.semitones[3] = 7;
 CATALOG_MODELS.ps6.params.semitones[3] = 4;
