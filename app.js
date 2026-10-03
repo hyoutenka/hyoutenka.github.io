@@ -194,7 +194,7 @@ async function connectNative({ quiet = false } = {}) {
     $('native-connect').disabled = false;
     nativeStatus(quiet
       ? 'ASIO 엔진이 보이지 않습니다. 최초 한 번 오디오 엔진을 설치한 뒤 새로고침하세요.'
-      : `연결 실패: 엔진 설치 상태와 브라우저의 로컬 네트워크 접근 권한을 확인하세요. (${error.message})`, true);
+      : `연결 실패: 설치 파일을 다시 실행해 '로컬 ASIO 엔진 응답 확인 완료'가 뜨는지 확인하세요. 완료됐다면 이 사이트의 로컬 네트워크 권한을 허용하세요. (${error.message})`, true);
   }
 }
 $('native-connect').onclick = () => connectNative();
