@@ -124,13 +124,13 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
     internal int ActiveEffectCount => Volatile.Read(ref activeEffects).Length;
     private float outputLevel = 1;
     private int muted;
-    private long lastWebControlTicks = DateTime.UtcNow.Ticks;
+    private long lastWebControlTick = Environment.TickCount64;
     private int webControlled;
     internal void SetOutput(float level, bool mute)
     {
         Volatile.Write(ref outputLevel, level);
         Volatile.Write(ref muted, mute ? 1 : 0);
-        Interlocked.Exchange(ref lastWebControlTicks, DateTime.UtcNow.Ticks);
+        Interlocked.Exchange(ref lastWebControlTick, Environment.TickCount64);
         Volatile.Write(ref webControlled, 1);
     }
     internal void RequireWebControl()
@@ -138,7 +138,7 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
         Volatile.Write(ref muted, 1);
         Volatile.Write(ref webControlled, 1);
     }
-    internal void RefreshControl() => Interlocked.Exchange(ref lastWebControlTicks, DateTime.UtcNow.Ticks);
+    internal void RefreshControl() => Interlocked.Exchange(ref lastWebControlTick, Environment.TickCount64);
     internal long Frames;
     internal long RoundTripFrames = -1;
     internal int Resyncs;
@@ -212,7 +212,7 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
             var effects = Volatile.Read(ref activeEffects);
             // A closed tab must not leave a live guitar monitor open indefinitely.
             var stale = Volatile.Read(ref webControlled) != 0 &&
-                DateTime.UtcNow.Ticks - Interlocked.Read(ref lastWebControlTicks) > TimeSpan.FromSeconds(6).Ticks;
+                Environment.TickCount64 - Interlocked.Read(ref lastWebControlTick) > 6000;
             var outputScale = stale || Volatile.Read(ref muted) != 0 ? 0 : gain * Volatile.Read(ref outputLevel);
             for (var i = 0; i < b.Frames; i++)
             {
