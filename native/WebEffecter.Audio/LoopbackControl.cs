@@ -167,8 +167,8 @@ internal sealed class LoopbackControl : IDisposable
         byte[] bytes;
         try { bytes = Convert.FromBase64String(field.GetString()!); }
         catch (FormatException) { throw new ArgumentException("Invalid IR encoding."); }
-        if (bytes.Length is < 4 or > 8192 || bytes.Length % 4 != 0)
-            throw new ArgumentException("IR must contain 1–2048 float samples.");
+        if (bytes.Length is < 4 or > 4096 || bytes.Length % 4 != 0)
+            throw new ArgumentException("IR must contain 1–1024 float samples.");
         var samples = new float[bytes.Length / 4];
         Buffer.BlockCopy(bytes, 0, samples, 0, bytes.Length);
         double energy = 0;
