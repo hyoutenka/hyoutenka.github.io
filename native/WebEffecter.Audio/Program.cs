@@ -24,7 +24,11 @@ internal static class Program
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
     Console.WriteLine("WebEffecter.Audio · STA build 4");
-    if (args.Contains("--self-test")) return LoopbackControl.SelfTestAsync().GetAwaiter().GetResult();
+    if (args.Contains("--self-test"))
+    {
+        QuickStart.VerifyDriverSelection();
+        return LoopbackControl.SelfTestAsync().GetAwaiter().GetResult();
+    }
     if (args.Length == 0 || args.Contains("--install"))
         return QuickStart.Install(args);
     if (args.Contains("--uninstall"))
