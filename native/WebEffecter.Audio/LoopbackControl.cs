@@ -76,7 +76,7 @@ internal sealed class LoopbackControl : IDisposable
                     return;
                 }
                 // Chrome can preflight even a GET when the public page calls loopback.
-                if (parts[0] == "OPTIONS" && (parts[1] is "/chain" or "/status"))
+                if (parts[0] == "OPTIONS" && (parts[1] is "/chain" or "/status" or "/heartbeat"))
                 {
                     await Reply(stream, 204, "", true, timeout.Token);
                     return;
@@ -84,6 +84,12 @@ internal sealed class LoopbackControl : IDisposable
                 if (parts[0] == "GET" && parts[1] == "/status")
                 {
                     await Reply(stream, 200, $"{{\"ok\":true,\"rate\":{sampleRate},\"count\":{processor.ActiveEffectCount}}}", true, timeout.Token);
+                    return;
+                }
+                if (parts[0] == "POST" && parts[1] == "/heartbeat")
+                {
+                    processor.RefreshControl();
+                    await Reply(stream, 200, "{\"ok\":true}", true, timeout.Token);
                     return;
                 }
                 if (parts[0] != "POST" || parts[1] != "/chain")
@@ -202,6 +208,8 @@ internal sealed class LoopbackControl : IDisposable
         var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"mute\":false}";
         using var accepted = await http.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
         if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1) throw new Exception("Control chain update failed.");
+        using var pulse = await http.PostAsync(url + "/heartbeat", new StringContent(""));
+        if (!pulse.IsSuccessStatusCode) throw new Exception("Control heartbeat failed.");
         using var rejected = await http.PostAsync(url + "/chain", new StringContent("{\"slots\":[{\"type\":\"saw\"}]}", Encoding.UTF8, "application/json"));
         if ((int)rejected.StatusCode != 422 || processor.ActiveEffectCount != 1) throw new Exception("Unsupported effect changed the active chain.");
         using var untrusted = new HttpClient(new HttpClientHandler { UseProxy = false });
