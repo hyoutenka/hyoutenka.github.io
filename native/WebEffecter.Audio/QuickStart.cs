@@ -25,6 +25,7 @@ internal static class QuickStart
     internal static int Install(string[] args)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("ASIO setup requires Windows.");
+        StopInstalledEngines();
         var drivers = AsioDevice.GetDriverNames();
         if (drivers.Length == 0) throw new InvalidOperationException("ASIO driver not found. Install your audio interface's manufacturer driver first.");
 
@@ -127,6 +128,29 @@ internal static class QuickStart
         Console.Error.WriteLine(detail);
         ShowNotice("ASIO 엔진 시작에 실패했습니다.\n\n" + detail, error: true);
         return 1;
+    }
+
+    private static void StopInstalledEngines()
+    {
+        var directory = Path.GetFullPath(DirectoryPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                if (process.Id == Environment.ProcessId ||
+                    !process.ProcessName.StartsWith("WebEffecter.Audio", StringComparison.OrdinalIgnoreCase)) continue;
+                try
+                {
+                    var path = process.MainModule?.FileName;
+                    if (path is null || !Path.GetFullPath(path).StartsWith(directory, StringComparison.OrdinalIgnoreCase)) continue;
+                    process.Kill();
+                    if (!process.WaitForExit(3000))
+                        throw new InvalidOperationException("기존 Web Effecter 오디오 엔진이 종료되지 않았습니다.");
+                }
+                catch (System.ComponentModel.Win32Exception) { }
+                catch (InvalidOperationException) when (process.HasExited) { }
+            }
+        }
     }
 
     internal static int Uninstall()
