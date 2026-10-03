@@ -7,6 +7,9 @@ on:
       - '.github/workflows/native-audio.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -27,3 +30,15 @@ jobs:
         with:
           name: web-effecter-audio-win-x64
           path: native/dist/WebEffecter.Audio.exe
+      - name: Publish one-click audio download
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view audio-latest 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create audio-latest native/dist/WebEffecter.Audio.exe --title "Web Effecter Audio" --notes "Windows x64 ASIO companion. Download and run once; then use the website."
+          } else {
+            gh release upload audio-latest native/dist/WebEffecter.Audio.exe --clobber
+          }
