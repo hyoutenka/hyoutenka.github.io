@@ -13,6 +13,14 @@ internal static class Program
   {
   try
   {
+    if (args.Contains("--daemon"))
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(QuickStart.LogPath)!);
+        var log = new StreamWriter(new FileStream(QuickStart.LogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+        { AutoFlush = true };
+        Console.SetOut(log);
+        Console.SetError(log);
+    }
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
     Console.WriteLine("WebEffecter.Audio · STA build 4");
