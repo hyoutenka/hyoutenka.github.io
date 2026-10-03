@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading;
 using NAudio.Wave;
 
@@ -14,6 +15,7 @@ internal static class Program
   {
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
+    Console.WriteLine("WebEffecter.Audio · STA build 2");
     var options = Arguments.Parse(args);
     if (options.List)
     {
@@ -87,6 +89,8 @@ internal static class Program
   catch (Exception error)
   {
     Console.Error.WriteLine(error.Message);
+    if (error is COMException com && com.HResult == unchecked((int)0x80004002))
+        Console.Error.WriteLine("STA is enabled. Check that --driver matches --list exactly and that the interface's 64-bit ASIO driver is installed.");
     return 1;
   }
   }
