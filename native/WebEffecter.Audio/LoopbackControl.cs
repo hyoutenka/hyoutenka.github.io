@@ -12,6 +12,11 @@ internal sealed class LoopbackControl : IDisposable
     private readonly MonitorProcessor processor;
     private readonly int sampleRate;
     private readonly int port;
+    private static readonly string Capabilities = JsonSerializer.Serialize(new
+    {
+        ok = true,
+        supported = NativeEffectFactory.SupportedIds
+    });
     internal int Port => port;
 
     internal LoopbackControl(int port, int sampleRate, MonitorProcessor processor)
@@ -83,7 +88,7 @@ internal sealed class LoopbackControl : IDisposable
                 }
                 if (parts[0] == "GET" && parts[1] == "/status")
                 {
-                    await Reply(stream, 200, $"{{\"ok\":true,\"rate\":{sampleRate},\"count\":{processor.ActiveEffectCount}}}", true, timeout.Token);
+                    await Reply(stream, 200, Capabilities[..^1] + $",\"rate\":{sampleRate},\"count\":{processor.ActiveEffectCount}}}", true, timeout.Token);
                     return;
                 }
                 if (parts[0] == "POST" && parts[1] == "/heartbeat")
@@ -98,9 +103,9 @@ internal sealed class LoopbackControl : IDisposable
                     return;
                 }
                 if (!headers.TryGetValue("Content-Type", out var contentType) || !contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) ||
-                    !headers.TryGetValue("Content-Length", out var lengthText) || !int.TryParse(lengthText, out var length) || length is < 2 or > 8192)
+                    !headers.TryGetValue("Content-Length", out var lengthText) || !int.TryParse(lengthText, out var length) || length is < 2 or > 32768)
                 {
-                    await Reply(stream, 400, "{\"error\":\"Expected JSON of at most 8192 bytes\"}", true, timeout.Token);
+                    await Reply(stream, 400, "{\"error\":\"Expected JSON of at most 32768 bytes\"}", true, timeout.Token);
                     return;
                 }
                 // The page sends ASCII-only names and numeric values. UTF-8 byte
@@ -116,12 +121,13 @@ internal sealed class LoopbackControl : IDisposable
                 try
                 {
                     using var document = JsonDocument.Parse(new string(body));
-                    var effects = ParseChain(document.RootElement);
+                    var impulse = ParseImpulse(document.RootElement);
+                    var effects = ParseChain(document.RootElement, impulse);
                     var output = Value(document.RootElement, "level", 1, 2);
                     var mute = document.RootElement.TryGetProperty("mute", out var muteField) && muteField.ValueKind == JsonValueKind.True;
                     processor.SetEffects(effects);
                     processor.SetOutput((float)output, mute);
-                    Console.WriteLine($"Web chain applied: {(effects.Length == 0 ? "dry" : string.Join(" -> ", effects.Select(effect => effect is JanRayEffect ? "janray" : "ocd")))} · level {output:P0} · mute {mute}");
+                    Console.WriteLine($"Web chain applied: {effects.Length} effects · level {output:P0} · mute {mute}");
                     await Reply(stream, 200, $"{{\"ok\":true,\"count\":{effects.Length}}}", true, timeout.Token);
                 }
                 catch (Exception error) when (error is JsonException or ArgumentException or InvalidOperationException or KeyNotFoundException)
@@ -135,7 +141,7 @@ internal sealed class LoopbackControl : IDisposable
         }
     }
 
-    private IAudioEffect[] ParseChain(JsonElement root)
+    private IAudioEffect[] ParseChain(JsonElement root, float[]? impulse)
     {
         if (!root.TryGetProperty("slots", out var slots) || slots.ValueKind != JsonValueKind.Array || slots.GetArrayLength() > 8)
             throw new ArgumentException("Expected up to eight slots.");
@@ -149,14 +155,32 @@ internal sealed class LoopbackControl : IDisposable
             var name = type.GetString();
             slot.TryGetProperty("values", out var values);
             if (values.ValueKind is not (JsonValueKind.Undefined or JsonValueKind.Object)) throw new ArgumentException("Invalid effect values.");
-            result.Add(name switch
-            {
-                "janray" => new JanRayEffect(sampleRate, Value(values, "gain", 35), Value(values, "bass", 50), Value(values, "treble", 65), Value(values, "trim", 50), Value(values, "volume", 70)),
-                "ocd" => new OcdEffect(sampleRate, Value(values, "drive", 42), Value(values, "tone", 55), Value(values, "peak", 0, 1), Value(values, "volume", 60)),
-                _ => throw new ArgumentException($"Native engine does not support: {name}")
-            });
+            result.Add(NativeEffectFactory.Create(name!, values, sampleRate, impulse));
         }
         return result.ToArray();
+    }
+
+    private static float[]? ParseImpulse(JsonElement root)
+    {
+        if (!root.TryGetProperty("impulse", out var field) || field.ValueKind == JsonValueKind.Null) return null;
+        if (field.ValueKind != JsonValueKind.String) throw new ArgumentException("Invalid IR data.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(field.GetString()!); }
+        catch (FormatException) { throw new ArgumentException("Invalid IR encoding."); }
+        if (bytes.Length is < 4 or > 8192 || bytes.Length % 4 != 0)
+            throw new ArgumentException("IR must contain 1–2048 float samples.");
+        var samples = new float[bytes.Length / 4];
+        Buffer.BlockCopy(bytes, 0, samples, 0, bytes.Length);
+        double energy = 0;
+        foreach (var sample in samples)
+        {
+            if (!float.IsFinite(sample) || Math.Abs(sample) > 100)
+                throw new ArgumentException("Invalid IR sample.");
+            energy += sample * sample;
+        }
+        var scale = energy > 1 ? 1 / Math.Sqrt(energy) : 1;
+        for (var i = 0; i < samples.Length; i++) samples[i] *= (float)scale;
+        return samples;
     }
 
     private static double Value(JsonElement values, string name, double fallback, double max = 100)
@@ -205,13 +229,20 @@ internal sealed class LoopbackControl : IDisposable
             throw new Exception("GET status private-network preflight failed.");
         using var status = await http.GetAsync(url + "/status");
         if (!status.IsSuccessStatusCode) throw new Exception("GET status failed.");
+        using var capabilities = JsonDocument.Parse(await status.Content.ReadAsStringAsync());
+        if (!capabilities.RootElement.GetProperty("supported").EnumerateArray().Any(id => id.GetString() == "delay"))
+            throw new Exception("Native effect capabilities are missing.");
         var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"mute\":false}";
         using var accepted = await http.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
         if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1) throw new Exception("Control chain update failed.");
+        var mixed = "{\"slots\":[{\"type\":\"cp10\"},{\"type\":\"rat2\"},{\"type\":\"delay\"},{\"type\":\"reverb\"},{\"type\":\"saw\"},{\"type\":\"ir\"}],\"impulse\":\"AACAPw==\"}";
+        using var expanded = await http.PostAsync(url + "/chain", new StringContent(mixed, Encoding.UTF8, "application/json"));
+        if (!expanded.IsSuccessStatusCode || processor.ActiveEffectCount != 6)
+            throw new Exception("Expanded pedal chain update failed: " + await expanded.Content.ReadAsStringAsync());
         using var pulse = await http.PostAsync(url + "/heartbeat", new StringContent(""));
         if (!pulse.IsSuccessStatusCode) throw new Exception("Control heartbeat failed.");
-        using var rejected = await http.PostAsync(url + "/chain", new StringContent("{\"slots\":[{\"type\":\"saw\"}]}", Encoding.UTF8, "application/json"));
-        if ((int)rejected.StatusCode != 422 || processor.ActiveEffectCount != 1) throw new Exception("Unsupported effect changed the active chain.");
+        using var rejected = await http.PostAsync(url + "/chain", new StringContent("{\"slots\":[{\"type\":\"nam_unknown\"}]}", Encoding.UTF8, "application/json"));
+        if ((int)rejected.StatusCode != 422 || processor.ActiveEffectCount != 6) throw new Exception("Unsupported effect changed the active chain.");
         using var untrusted = new HttpClient(new HttpClientHandler { UseProxy = false });
         untrusted.DefaultRequestHeaders.Add("Origin", "https://untrusted.example");
         using var blocked = await untrusted.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
