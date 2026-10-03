@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32;
@@ -9,6 +10,11 @@ using NAudio.Wave;
 // logins start the quiet controller; no terminal or administrator is needed.
 internal static class QuickStart
 {
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int MessageBoxW(IntPtr window, string message, string title, uint flags);
+
+    internal static void ShowNotice(string message, bool error = false) =>
+        MessageBoxW(IntPtr.Zero, message, "Web Effecter Audio", error ? 0x10u : 0x40u);
     private const string StartupName = "Web Effecter Audio";
     private const string StartupKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private static readonly string DirectoryPath = Path.Combine(
@@ -109,19 +115,18 @@ internal static class QuickStart
                     Console.WriteLine("로컬 ASIO 엔진 응답 확인 완료.");
                     Console.WriteLine("설정 완료. 이제 https://hyoutenka.github.io/ 에 접속하면 ASIO가 자동 연결됩니다.");
                     Console.WriteLine("사이트가 이미 열려 있다면 새로고침하세요. 이 창은 닫아도 됩니다.");
+                    ShowNotice("로컬 ASIO 엔진 응답을 확인했습니다.\n이제 Web Effecter 페이지를 새로고침하세요.");
                     return 0;
                 }
             }
             catch (HttpRequestException) { }
             catch (TaskCanceledException) { }
         }
-        Console.Error.WriteLine("엔진 시작에 실패했습니다. 아래 로그의 끝부분을 확인해 주세요:");
-        if (File.Exists(LogPath))
-            foreach (var line in File.ReadLines(LogPath).TakeLast(12)) Console.Error.WriteLine(line);
-        else
-            Console.Error.WriteLine($"로그 파일이 없습니다: {LogPath}");
-        Console.WriteLine("오류 화면을 확인한 뒤 Enter를 누르면 창이 닫힙니다.");
-        Console.ReadLine();
+        var detail = File.Exists(LogPath)
+            ? string.Join(Environment.NewLine, File.ReadLines(LogPath).TakeLast(8))
+            : $"로그 파일이 없습니다: {LogPath}";
+        Console.Error.WriteLine(detail);
+        ShowNotice("ASIO 엔진 시작에 실패했습니다.\n\n" + detail, error: true);
         return 1;
     }
 
