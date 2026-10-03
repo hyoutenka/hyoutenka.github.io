@@ -108,7 +108,7 @@ let directMonitorGain, chainMonitorGain, directMonitor = false;
 let availableDevices = [], matchedOutput = null;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
-let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer;
+let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
 const NATIVE_URL = 'http://127.0.0.1:8765';
 const NATIVE_TYPES = new Set(['janray', 'ocd']);
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
@@ -147,13 +147,14 @@ async function flushNative() {
     }
   } catch (error) {
     nativeConnected = false;
+    clearInterval(nativeHeartbeat);
     $('native-connect').disabled = false;
     $('native-connect').textContent = '로컬 엔진 다시 연결';
     for (const id of ['power', 'input-trim', 'request-input', 'choose-output', 'input-device', 'output-device']) $(id).disabled = false;
     nativeStatus(`ASIO 제어 연결 끊김: ${error.message}. 엔진을 확인한 뒤 다시 연결하세요.`, true);
   } finally { nativeBusy = false; }
 }
-$('native-connect').onclick = async () => {
+async function connectNative({ quiet = false } = {}) {
   $('native-connect').disabled = true;
   nativeStatus('로컬 ASIO 엔진에 연결하는 중…');
   try {
@@ -173,11 +174,30 @@ $('native-connect').onclick = async () => {
     $('engine-state').classList.add('on');
     nativeStatus('ASIO 연결됨 · 체인 설정을 적용하는 중…');
     scheduleNativeSync();
+    clearInterval(nativeHeartbeat);
+    nativeHeartbeat = setInterval(async () => {
+      if (!nativeConnected) return;
+      try {
+        const pulse = await fetch(`${NATIVE_URL}/heartbeat`, {
+          method: 'POST', cache: 'no-store', targetAddressSpace: 'loopback'
+        });
+        if (!pulse.ok) throw new Error(`응답 ${pulse.status}`);
+      } catch (error) {
+        nativeConnected = false;
+        clearInterval(nativeHeartbeat);
+        $('native-connect').disabled = false;
+        $('native-connect').textContent = '로컬 엔진 다시 연결';
+        nativeStatus(`ASIO 연결 끊김: ${error.message}`, true);
+      }
+    }, 2000);
   } catch (error) {
     $('native-connect').disabled = false;
-    nativeStatus(`연결 실패: --control-port 8765로 엔진을 실행하고 브라우저의 로컬 네트워크 접근을 허용하세요. (${error.message})`, true);
+    nativeStatus(quiet
+      ? 'ASIO 엔진이 보이지 않습니다. 최초 한 번 오디오 엔진을 설치한 뒤 새로고침하세요.'
+      : `연결 실패: 엔진 설치 상태와 브라우저의 로컬 네트워크 접근 권한을 확인하세요. (${error.message})`, true);
   }
-};
+}
+$('native-connect').onclick = () => connectNative();
 $('effect-controls').addEventListener('input', scheduleNativeSync);
 $('effect-controls').addEventListener('change', scheduleNativeSync);
 
@@ -1035,3 +1055,6 @@ $('metro-tap').onclick = () => {
 };
 renderBeats();
 render();
+// The installed companion starts with Windows; visiting the practice page
+// automatically connects control. Guitar samples never pass through fetch.
+setTimeout(() => void connectNative({ quiet: true }), 500);
