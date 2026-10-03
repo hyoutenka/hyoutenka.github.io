@@ -23,7 +23,7 @@ internal static class Program
     }
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
-    Console.WriteLine("WebEffecter.Audio · STA build 6 (native pedal chain)");
+    Console.WriteLine("WebEffecter.Audio · STA build 7 (ASIO route status)");
     if (args.Contains("--self-test"))
     {
         QuickStart.VerifyDriverSelection();
@@ -97,7 +97,14 @@ internal static class Program
         Console.WriteLine($"Live monitor: selected input -> {(effects.Length == 0 ? "dry" : string.Join(" -> ", options.Chain))} -> both selected outputs. Press Enter to stop.");
 
     device.ResyncOccurred += (_, _) => Interlocked.Increment(ref processor.Resyncs);
-    using var control = options.ControlPort is { } port ? new LoopbackControl(port, options.Rate, processor) : null;
+    using var control = options.ControlPort is { } port
+        ? new LoopbackControl(port, options.Rate, processor, options.Driver,
+            options.Input, options.Left, options.Right,
+            capabilities.InputChannelInfos[options.Input].name,
+            capabilities.OutputChannelInfos[options.Left].name,
+            capabilities.OutputChannelInfos[options.Right].name,
+            device.FramesPerBuffer)
+        : null;
     if (control is not null) Console.WriteLine($"Web chain control: http://127.0.0.1:{options.ControlPort}/ (local computer only)");
     device.Start();
     using var timer = new Timer(_ =>
