@@ -25,6 +25,18 @@
 | --- | --- | --- |
 | Pro Co RAT (초기형) | [ElectroSmash 원작성 회로 분석](https://electrosmash.com/proco-rat), [Aion Helios 파생 회로](https://aionfx.com/project/helios-vintage-distortion/) | 고게인 연산증폭기, 접지 방향 다이오드 클리핑, 역방향 Filter. RAT2·Turbo RAT을 초기형과 혼동하지 않기. |
 | A3 Stompbox Groovim (원형 Distortion) | [제조사 제품](https://a3stompbox.imweb.me/shop_view/?idx=3), [제품 조작 설명](https://reverb.com/item/39993317-a3-stompbox-groovim-distortion), [Aion Helios 제작 문서](https://aionfx.com/project/helios-vintage-distortion/) | RAT을 재해석했다는 설명과 Gain·Volume·Filter를 참고한 별도 DSP 근사. A3 부품값과 클리핑 소자는 공개 회로로 확인하지 못함. Groovim 808은 다른 제품이므로 혼동하지 않기. |
+
+## A3 단독 시연 기준 및 현재 판정
+
+세 모델은 스택 조정보다 **단독 모델 검증을 우선**합니다. 영상에는 각 연주자의 기타·앰프·마이크가 포함되어 있으며 동일 DI의 원음과 페달 출력이 제공되지 않습니다. 아래 자료는 음색 방향과 조작 반응을 확인하는 기준입니다. 음향 유사도 8/10을 실측했다고 주장하는 자료가 아닙니다.
+
+| 페달 | 단독 시연 | 모델에서 확인할 기준 | 현재 상태 |
+| --- | --- | --- | --- |
+| Groovim 원형 | [Groovim과 RAT 심층 비교](https://www.youtube.com/watch?v=fkePcMQPigg), [Groovim 단독 연주](https://www.youtube.com/watch?v=I59dTgMQxUA) | 낮은 게인에서 어택을 남기고 강한 피킹에서 클리핑, Filter를 올리면 고역 감쇠, 저중역 두께 | 클리핑 진입점과 저중역·Filter 범위를 조정함. 오디오 A/B 미검증. |
+| Angel | [제작사 Angel 단독 데모](https://www.youtube.com/watch?v=WlSPFTKvmTE), [Angel 조작 시연](https://www.youtube.com/watch?v=vlO3i3vBgxE) | 작은 피킹의 명료함, 높은 게인에서 어택·지속음, 독립 Bass·Treble | 두 증폭단을 덜 포화되도록 조정함. 오디오 A/B 미검증. |
+| Awesome | [제작사 저게인 데모](https://www.youtube.com/watch?v=C7qMrp29UW8), [Molly Miller 제작사 리뷰](https://www.youtube.com/watch?v=tSwy3HS9UDk) | Klon 성향의 부스트→크런치, 높은 음역에서 정돈된 저역, Gain과 Tone 변화 | 클린/클립 혼합에 게인 연동 저역 차단을 추가함. 오디오 A/B 미검증. |
+
+Awesome 리뷰의 제작사 제공 자막에는 게인 약 2시의 크런치와 낮은 게인의 부스트·명료함이 설명됩니다. 이는 시연자의 설명이지 부품별 회로나 같은 설정의 DI 측정값이 아닙니다. **각 모델이 8/10을 넘었다는 판정은 보류하며 세 페달의 스택 보정은 진행하지 않습니다.**
 | BOSS DS-1 | [ElectroSmash 회로 분석](https://www.electrosmash.com/boss-ds1-analysis), [Aion Comet](https://aionfx.com/project-category/overdrive/) | 트랜지스터 증폭·하드 클리핑·톤 스택. 회로 개정별 차이 있음. |
 | MXR Distortion+ | [ElectroSmash 회로 분석](https://electrosmash.com/mxr-distortion-plus-analysis) | 단순한 연산증폭기와 다이오드 하드 클리핑의 기준 모델. |
 | BOSS HM-2 / Marshall Guv'nor / Shredmaster / Suhr Riot | [Aion 드라이브 목록](https://aionfx.com/project-category/overdrive/), [Guv'nor 회로 분석](https://electrosmash.com/marshall-guvnor-analysis) | 각각 다른 EQ가 음색의 핵심. |

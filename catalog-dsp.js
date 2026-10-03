@@ -17,80 +17,84 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
   const parameter = (audioParam, value) => audioParam.setTargetAtTime(value, ctx.currentTime, .012);
   if (model.engine === 'angel') {
     // Manufacturer controls/description guide the response; component topology is not published.
-    // Two gentle, differently biased stages preserve picking dynamics at low gain.
-    const hp = filter('highpass', 90), focus = filter('peaking', 900, .9);
-    focus.gain.value = 2;
+    // Two lower-gain stages leave room for the attack heard in the solo demos.
+    const hp = filter('highpass', 80), focus = filter('peaking', 950, .9);
+    focus.gain.value = 1.5;
     const pre = gain(1), first = add(ctx.createWaveShaper()), interstage = filter('lowpass', 6800);
-    const secondDrive = gain(1.6), second = add(ctx.createWaveShaper());
+    const secondDrive = gain(1), second = add(ctx.createWaveShaper());
     const bass = filter('lowshelf', 190), treble = filter('highshelf', 3200);
     const presence = filter('lowpass', 10500), volume = gain(1);
     const shape = (positive, negative) => Float32Array.from({length:4096}, (_, i) => {
       const x = i * 2 / 4095 - 1;
       return Math.tanh(x * (x >= 0 ? positive : negative));
     });
-    first.curve = shape(1.7, 1.45); first.oversample = '4x';
-    second.curve = shape(1.35, 1.15); second.oversample = '4x';
+    first.curve = shape(1.5, 1.25); first.oversample = '4x';
+    second.curve = shape(1.15, 1.0); second.oversample = '4x';
     input.connect(hp).connect(focus).connect(pre).connect(first)
       .connect(interstage).connect(secondDrive).connect(second)
       .connect(bass).connect(treble).connect(presence).connect(volume).connect(output);
     const update = () => {
       const drive = p.gain / 100;
-      parameter(pre.gain, 1 + drive * 5.5);
-      parameter(secondDrive.gain, 1.25 + drive * 1.1);
+      parameter(pre.gain, 1 + drive * 3.4);
+      parameter(secondDrive.gain, 1 + drive * .9);
       parameter(bass.gain, (p.bass - 50) * .22);
       parameter(treble.gain, (p.treble - 50) * .22);
-      parameter(volume.gain, (p.volume / 100) ** 1.4 * .95 / (1 + drive * .55));
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * 1.35 / (1 + drive * .42));
     };
     update(); return { update };
   }
   if (model.engine === 'awesome') {
     // Product descriptions support a boost-to-overdrive character, not an exact circuit.
-    // A gain-dependent clean path keeps the low-gain attack intact when stacked.
-    const hp = filter('highpass', 65), focus = filter('peaking', 930, .85);
-    focus.gain.value = 1.6;
+    // Solo demo: Klon-inspired boost at low gain, tight lows and clear top at higher gain.
+    const hp = filter('highpass', 55), drivenHighpass = filter('highpass', 220);
+    const focus = filter('peaking', 1000, .8);
+    focus.gain.value = 2;
     const pre = gain(1), shaper = add(ctx.createWaveShaper());
     shaper.curve = Float32Array.from({ length: 4096 }, (_, i) => {
       const x = i * 2 / 4095 - 1;
       return Math.tanh(x * (x >= 0 ? 2.25 : 1.9)) / Math.tanh(2.25);
     });
     shaper.oversample = '4x';
-    const smooth = filter('lowpass', 8100), clean = gain(1), driven = gain(0);
+    const smooth = filter('lowpass', 9200), clean = gain(1), driven = gain(0);
     const tone = filter('highshelf', 2900), volume = gain(1);
     input.connect(hp);
     hp.connect(clean).connect(tone);
-    hp.connect(focus).connect(pre).connect(shaper).connect(smooth).connect(driven).connect(tone);
+    hp.connect(drivenHighpass).connect(focus).connect(pre).connect(shaper).connect(smooth).connect(driven).connect(tone);
     tone.connect(volume).connect(output);
     const update = () => {
       const amount = p.gain / 100;
-      parameter(pre.gain, .8 + amount * 8);
-      parameter(clean.gain, .9 - amount * .55);
-      parameter(driven.gain, .09 + amount * .62);
+      parameter(drivenHighpass.frequency, 170 + amount * 210);
+      parameter(pre.gain, 1 + amount * 6.5);
+      parameter(clean.gain, .95 - amount * .62);
+      parameter(driven.gain, .06 + amount * .69);
       parameter(tone.gain, (p.tone - 50) * .16);
-      parameter(volume.gain, (p.volume / 100) ** 1.4 * 1.7 / (1 + amount * .35));
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * 1.65 / (1 + amount * .25));
     };
     update(); return { update };
   }
   if (model.engine === 'groovim') {
     // RAT-style topology as a voicing reference; A3 component values are unknown.
-    const hp = filter('highpass', 130), weight = filter('peaking', 650, .7);
-    weight.gain.value = 1.5;
+    // The earlier drive hit the clipping rails even with a modest DI signal.
+    const hp = filter('highpass', 95), weight = filter('peaking', 620, .7);
+    weight.gain.value = 1.8;
     const pre = gain(1), shaper = add(ctx.createWaveShaper());
     shaper.curve = Float32Array.from({ length: 4096 }, (_, i) => {
       const x = i * 2 / 4095 - 1;
-      // Rounded hard-clipping knee retains a little more attack than the generic RAT voice.
-      return Math.max(-.86, Math.min(.86, x * 2.8)) / .86;
+      // Leave a wide linear region before the rounded hard-clipping knee.
+      const driven = x * 1.9;
+      return Math.max(-.9, Math.min(.9, driven)) / .9;
     });
     shaper.oversample = '4x';
-    const cutoff = filter('lowpass', 5500), body = filter('lowshelf', 180), volume = gain(1);
-    body.gain.value = 1.2;
+    const cutoff = filter('lowpass', 6500), body = filter('lowshelf', 190), volume = gain(1);
+    body.gain.value = 1.8;
     input.connect(hp).connect(weight).connect(pre).connect(shaper)
       .connect(cutoff).connect(body).connect(volume).connect(output);
     const update = () => {
       const amount = p.gain / 100;
-      parameter(pre.gain, .7 + amount * 12);
+      parameter(pre.gain, .65 + amount * 5.8);
       // RAT-style Filter: turning clockwise removes more high frequencies.
-      parameter(cutoff.frequency, 8600 - p.filter * 68);
-      parameter(volume.gain, (p.volume / 100) ** 1.4 * .95 / (1 + amount * .7));
+      parameter(cutoff.frequency, 9200 - p.filter * 72);
+      parameter(volume.gain, (p.volume / 100) ** 1.4 * 1.2 / (1 + amount * .35));
     };
     update(); return { update };
   }
