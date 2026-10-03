@@ -105,6 +105,7 @@ let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
 let ctx, sourceBus, inputGain, inputAnalyser, outputAnalyser, master, limiter, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
 let directMonitorGain, chainMonitorGain, directMonitor = false;
+let availableDevices = [], matchedOutput = null;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
@@ -171,6 +172,25 @@ document.addEventListener('keydown', event => {
 });
 
 function notify(message, error = false) { $('notice').textContent = message; $('notice').classList.toggle('error', error); }
+function updateRouteGuide() {
+  const guide = $('route-guide'), button = $('match-output');
+  matchedOutput = null; button.hidden = true;
+  const track = stream?.getAudioTracks()[0];
+  if (!track) { guide.textContent = '인터페이스를 연결하면 입력·출력 장치 조합을 확인합니다.'; return; }
+  const settings = track.getSettings();
+  const inputGroup = settings.groupId || availableDevices.find(d => d.kind === 'audioinput' && d.deviceId === settings.deviceId)?.groupId;
+  const selectedOutput = availableDevices.find(d => d.kind === 'audiooutput' && d.deviceId === activeOutput);
+  const outputName = selectedOutput?.label || (activeOutput === 'default' ? '시스템 기본 출력' : $('output-device').selectedOptions[0]?.textContent || '선택한 출력');
+  if (inputGroup) matchedOutput = availableDevices.find(d => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.groupId === inputGroup) || null;
+  const sameDevice = !!inputGroup && selectedOutput?.groupId === inputGroup;
+  if (outputRoute === 'media') guide.textContent = `현재 출력: ${outputName} · 미디어 경유 경로입니다. 시스템 기본 출력으로 전환해 직접 경로를 비교하세요.`;
+  else if (sameDevice) guide.textContent = `현재 출력: ${outputName} · 입력과 같은 인터페이스로 연결되었습니다.`;
+  else if (matchedOutput && typeof ctx?.setSinkId === 'function') {
+    guide.textContent = `현재 출력: ${outputName} · 입력과 같은 인터페이스의 ${matchedOutput.label || '출력 장치'}를 선택할 수 있습니다.`;
+    button.hidden = false;
+  } else if (matchedOutput) guide.textContent = `현재 출력: ${outputName} · Windows 기본 출력을 ${matchedOutput.label || '오디오 인터페이스'}로 설정하면 직접 경로로 사용할 수 있습니다.`;
+  else guide.textContent = `현재 출력: ${outputName} · 입력과 같은 인터페이스 출력은 자동 확인되지 않았습니다. 유선 출력과 장치 설정을 확인하세요.`;
+}
 function refreshLatencyInfo() {
   if (!ctx) return;
   const inputLatency = stream?.getAudioTracks()[0]?.getSettings().latency;
@@ -180,6 +200,7 @@ function refreshLatencyInfo() {
   if (Number.isFinite(ctx.outputLatency)) parts.push(`출력 ${Math.round(ctx.outputLatency * 1000)}ms`);
   const route = outputRoute === 'media' ? ' · 미디어 경유 출력(추가 지연 가능)' : ' · 직접 출력';
   $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'}${route} · 실제 연주 지연은 장치에 따라 다릅니다.`;
+  updateRouteGuide();
 }
 function markCustom() { $('preset').value = 'custom'; }
 let nodeDrag = null, suppressNodeClick = false, chainAnimationTimer;
@@ -614,11 +635,13 @@ function stopFile() { if (fileSource) { fileSource.onended = null; try { fileSou
 async function refreshDevices() {
   if (!navigator.mediaDevices?.enumerateDevices) return;
   const devices = await navigator.mediaDevices.enumerateDevices();
+  availableDevices = devices;
   const currentInput = $('input-device').value, currentOutput = $('output-device').value;
   $('input-device').replaceChildren(...devices.filter(d => d.kind === 'audioinput').map((d, i) => new Option(d.label || `입력 ${i + 1}`, d.deviceId)));
   if (currentInput && [...$('input-device').options].some(o => o.value === currentInput)) $('input-device').value = currentInput;
   $('output-device').replaceChildren(new Option('시스템 기본 출력', 'default'), ...devices.filter(d => d.kind === 'audiooutput' && d.deviceId !== 'default').map((d, i) => new Option(d.label || `출력 ${i + 1}`, d.deviceId)));
   if ([...$('output-device').options].some(o => o.value === currentOutput)) $('output-device').value = currentOutput;
+  updateRouteGuide();
 }
 async function connectInput() {
   if (!await ensureEngine()) return;
@@ -658,6 +681,12 @@ async function routeOutput(id) {
   } catch (e) { notify(`출력 변경 실패: ${e.message}`, true); $('output-device').value = activeOutput; }
 }
 $('output-device').onchange = (e) => routeOutput(e.target.value);
+$('match-output').onclick = async () => {
+  if (!matchedOutput) return;
+  const id = matchedOutput.deviceId;
+  await routeOutput(id);
+  if (activeOutput === id) $('output-device').value = id;
+};
 $('choose-output').onclick = async () => {
   if (!navigator.mediaDevices?.selectAudioOutput) { notify('이 브라우저는 출력 장치 선택 창을 지원하지 않습니다. 목록에서 장치를 선택하거나 시스템 기본 출력을 사용하세요.', true); return; }
   try { const device = await navigator.mediaDevices.selectAudioOutput(); await refreshDevices();
