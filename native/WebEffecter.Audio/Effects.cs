@@ -19,16 +19,19 @@ internal sealed class JanRayEffect : IAudioEffect
     private readonly double inputA, bassA, feedbackA, trebleA, outputA, rf, rg;
     private double inputLP, bassLP, feedbackLP, trebleLP, outputLP;
 
-    internal JanRayEffect(int rate)
+    internal JanRayEffect(int rate, double gain = 35, double bass = 50, double treble = 65, double trim = 50, double volume = 70)
     {
         inputA = CircuitMath.Coefficient(1 / (2 * Math.PI * 500000 * 47e-9), rate);
-        bassA = CircuitMath.Coefficient(35 + 400 * Math.Pow(1 - .5, 2), rate);
-        rf = 3300 + 500000 * Math.Pow(.35, 2);
-        rg = 9100 + 680 + 10000 * .5;
+        bassA = CircuitMath.Coefficient(35 + 400 * Math.Pow(1 - bass / 100, 2), rate);
+        rf = 3300 + 500000 * Math.Pow(gain / 100, 2);
+        rg = 9100 + 680 + 10000 * trim / 100;
         feedbackA = CircuitMath.Coefficient(1 / (2 * Math.PI * rf * 47e-12), rate);
-        trebleA = CircuitMath.Coefficient(1 / (2 * Math.PI * (1200 + 10000 * (1 - .65)) * 47e-9), rate);
+        trebleA = CircuitMath.Coefficient(1 / (2 * Math.PI * (1200 + 10000 * (1 - treble / 100)) * 47e-9), rate);
         outputA = CircuitMath.Coefficient(1 / (2 * Math.PI * 10000 * 1e-6), rate);
+        this.volume = volume / 100;
     }
+
+    private readonly double volume;
 
     public float Process(float sample)
     {
@@ -52,7 +55,7 @@ internal sealed class JanRayEffect : IAudioEffect
         trebleLP += trebleA * (firstStage - trebleLP);
         var amplified = trebleLP * 2;
         outputLP += outputA * (amplified - outputLP);
-        return (float)Math.Tanh((amplified - outputLP) * .25 * .7);
+        return (float)Math.Tanh((amplified - outputLP) * .25 * volume);
     }
 }
 
@@ -62,21 +65,24 @@ internal sealed class OcdEffect : IAudioEffect
     private readonly double inputA, driveA, feedbackA, secondA, secondFeedbackA, toneA, outputA, rf, toneShelf;
     private double last, inputLP, driveLP, feedbackLP, secondLP, secondFeedbackLP, toneLP, outputLP;
 
-    internal OcdEffect(int sampleRate)
+    internal OcdEffect(int sampleRate, double drive = 42, double tone = 55, double peak = 0, double volume = 60)
     {
         var rate = sampleRate * 2;
         inputA = CircuitMath.Coefficient(1 / (2 * Math.PI * 470000 * 22e-9), rate);
         driveA = CircuitMath.Coefficient(1 / (2 * Math.PI * 2200 * 68e-9), rate);
-        rf = 20000 + 1000000 * Math.Pow(.42, 2);
+        rf = 20000 + 1000000 * Math.Pow(drive / 100, 2);
         feedbackA = CircuitMath.Coefficient(1 / (2 * Math.PI * rf * 22e-12), rate);
         secondA = CircuitMath.Coefficient(1 / (2 * Math.PI * 39000 * 100e-9), rate);
         secondFeedbackA = CircuitMath.Coefficient(1 / (2 * Math.PI * 150000 * 220e-12), rate);
-        var seriesR = 33000.0;
-        var toneR = 10000 * .55;
+        var seriesR = peak >= .5 ? 1 / (1 / 33000.0 + 1 / 22000.0) : 33000.0;
+        var toneR = Math.Max(1, 10000 * tone / 100);
         toneA = CircuitMath.Coefficient(1 / (2 * Math.PI * (seriesR + toneR) * 47e-9), rate);
         toneShelf = toneR / (seriesR + toneR);
         outputA = CircuitMath.Coefficient(1 / (2 * Math.PI * 500000 * 10e-6), rate);
+        this.volume = volume / 100;
     }
+
+    private readonly double volume;
 
     public float Process(float sample)
     {
@@ -108,7 +114,7 @@ internal sealed class OcdEffect : IAudioEffect
             var coupled = second - outputLP;
             toneLP += toneA * (coupled - toneLP);
             var toned = toneLP + toneShelf * (coupled - toneLP);
-            combined += Math.Tanh(toned * .52 * .6);
+            combined += Math.Tanh(toned * .52 * volume);
         }
         last = raw;
         return (float)(combined * .5);

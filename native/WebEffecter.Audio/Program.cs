@@ -15,7 +15,8 @@ internal static class Program
   {
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
-    Console.WriteLine("WebEffecter.Audio · STA build 3");
+    Console.WriteLine("WebEffecter.Audio · STA build 4");
+    if (args.Contains("--self-test")) return LoopbackControl.SelfTestAsync().GetAwaiter().GetResult();
     var options = Arguments.Parse(args);
     if (options.List)
     {
@@ -79,6 +80,8 @@ internal static class Program
         Console.WriteLine($"Live monitor: selected input -> {(effects.Length == 0 ? "dry" : string.Join(" -> ", options.Chain))} -> both selected outputs. Press Enter to stop.");
 
     device.ResyncOccurred += (_, _) => Interlocked.Increment(ref processor.Resyncs);
+    using var control = options.ControlPort is { } port ? new LoopbackControl(port, options.Rate, processor) : null;
+    if (control is not null) Console.WriteLine($"Web chain control: http://127.0.0.1:{options.ControlPort}/ (local computer only)");
     device.Start();
     using var timer = new Timer(_ =>
     {
@@ -106,8 +109,18 @@ internal static class Program
   }
 }
 
-internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int sampleRate, IAudioEffect[] effects)
+internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int sampleRate, IAudioEffect[] initialEffects)
 {
+    private IAudioEffect[] activeEffects = initialEffects;
+    internal void SetEffects(IAudioEffect[] next) => Volatile.Write(ref activeEffects, next);
+    internal int ActiveEffectCount => Volatile.Read(ref activeEffects).Length;
+    private float outputLevel = 1;
+    private int muted;
+    internal void SetOutput(float level, bool mute)
+    {
+        Volatile.Write(ref outputLevel, level);
+        Volatile.Write(ref muted, mute ? 1 : 0);
+    }
     internal long Frames;
     internal long RoundTripFrames = -1;
     internal int Resyncs;
@@ -178,11 +191,13 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
         }
         else
         {
+            var effects = Volatile.Read(ref activeEffects);
+            var outputScale = Volatile.Read(ref muted) != 0 ? 0 : gain * Volatile.Read(ref outputLevel);
             for (var i = 0; i < b.Frames; i++)
             {
                 var v = input[i];
                 foreach (var effect in effects) v = effect.Process(v);
-                v = Math.Clamp(v * gain, -0.9f, 0.9f);
+                v = Math.Clamp(v * outputScale, -0.9f, 0.9f);
                 left[i] = v;
                 right[i] = v;
                 outputPeak = MathF.Max(outputPeak, MathF.Abs(v));
@@ -194,13 +209,13 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
     }
 }
 
-internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain, string[] Chain)
+internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain, string[] Chain, int? ControlPort)
 {
     internal static Arguments Parse(string[] args)
     {
         if (args.Length == 0 || args.Contains("--help"))
         {
-            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--chain janray,ocd | --tone | --measure | --panel]");
+            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--chain janray,ocd] [--control-port 8765] [--tone | --measure | --panel]");
             Console.WriteLine("ASIO channels are ZERO-BASED. On a 4i4, outputs 2/3 normally represent 3/4; verify the printed channel names.");
             Environment.Exit(0);
         }
@@ -220,10 +235,14 @@ internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone,
             throw new ArgumentException("--chain accepts up to 8 comma-separated effects: janray,ocd.");
         if (chain.Length != 0 && (args.Contains("--tone") || args.Contains("--measure")))
             throw new ArgumentException("--chain cannot be combined with --tone or --measure.");
+        var controlPort = Get("--control-port") is { } rawPort ? int.Parse(rawPort, CultureInfo.InvariantCulture) : (int?)null;
+        if (controlPort is < 1024 or > 65535) throw new ArgumentException("--control-port must be between 1024 and 65535.");
+        if (controlPort is not null && (args.Contains("--tone") || args.Contains("--measure") || args.Contains("--panel")))
+            throw new ArgumentException("--control-port is for live guitar monitoring only.");
         var gain = float.TryParse(Get("--gain"), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0.5f;
         if (gain is < 0 or > 1) throw new ArgumentException("--gain must be from 0 to 1.");
         return new(args.Contains("--list"), args.Contains("--panel"), args.Contains("--measure"), args.Contains("--tone"), driver,
             Number("--input", 0), Number("--left", 0), Number("--right", 1), Number("--rate", 48000),
-            Get("--buffer") is { } raw ? int.Parse(raw, CultureInfo.InvariantCulture) : null, gain, chain);
+            Get("--buffer") is { } raw ? int.Parse(raw, CultureInfo.InvariantCulture) : null, gain, chain, controlPort);
     }
 }

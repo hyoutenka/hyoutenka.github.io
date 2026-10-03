@@ -108,8 +108,77 @@ let directMonitorGain, chainMonitorGain, directMonitor = false;
 let availableDevices = [], matchedOutput = null;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
+let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer;
+const NATIVE_URL = 'http://127.0.0.1:8765';
+const NATIVE_TYPES = new Set(['janray', 'ocd']);
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
+
+function nativeStatus(message, error = false) {
+  $('native-status').textContent = message;
+  $('native-status').classList.toggle('error', error);
+}
+function scheduleNativeSync() {
+  if (!nativeConnected) return;
+  nativeRevision++;
+  clearTimeout(nativeTimer);
+  nativeTimer = setTimeout(() => void flushNative(), 80);
+}
+async function flushNative() {
+  if (nativeBusy || !nativeConnected) return;
+  nativeBusy = true;
+  try {
+    while (nativeConnected && nativeApplied < nativeRevision) {
+      const revision = nativeRevision;
+      const unsupported = slots.filter(slot => slot.type && !slot.bypass && !NATIVE_TYPES.has(slot.type));
+      // An unsupported chain must never leave the previous, different tone active.
+      const payload = { slots: unsupported.length ? [] : slots.map(({ type, bypass, values }) => ({ type, bypass, values })),
+        level: +$('master-volume').value / 100, mute: isMuted };
+      const response = await fetch(`${NATIVE_URL}/chain`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), cache: 'no-store', targetAddressSpace: 'loopback'
+      });
+      if (!response.ok) throw new Error(`제어 요청 실패 (${response.status})`);
+      nativeApplied = revision;
+      nativeStatus(unsupported.length
+        ? `ASIO 원음 출력 · 아직 네이티브 엔진에 없는 블록: ${[...new Set(unsupported.map(s => EFFECTS[s.type]?.name || s.type))].join(', ')}`
+        : `ASIO 연결됨 · ${payload.slots.filter(s => s.type && !s.bypass).length}개 이펙트 적용${isMuted ? ' · 뮤트' : ''}`, !!unsupported.length);
+    }
+  } catch (error) {
+    nativeConnected = false;
+    $('native-connect').disabled = false;
+    $('native-connect').textContent = '로컬 엔진 다시 연결';
+    for (const id of ['power', 'input-trim', 'request-input', 'choose-output', 'input-device', 'output-device']) $(id).disabled = false;
+    nativeStatus(`ASIO 제어 연결 끊김: ${error.message}. 엔진을 확인한 뒤 다시 연결하세요.`, true);
+  } finally { nativeBusy = false; }
+}
+$('native-connect').onclick = async () => {
+  $('native-connect').disabled = true;
+  nativeStatus('로컬 ASIO 엔진에 연결하는 중…');
+  try {
+    const response = await fetch(`${NATIVE_URL}/status`, { cache: 'no-store', targetAddressSpace: 'loopback' });
+    if (!response.ok) throw new Error(`응답 ${response.status}`);
+    disconnectLive(); stopFile();
+    if (ctx?.state === 'running') await ctx.suspend();
+    nativeConnected = true;
+    $('native-connect').textContent = 'ASIO 연결됨';
+    $('power').disabled = true;
+    $('input-trim').disabled = true;
+    $('request-input').disabled = true;
+    $('choose-output').disabled = true;
+    $('input-device').disabled = true;
+    $('output-device').disabled = true;
+    $('engine-state').textContent = 'ASIO CONTROL';
+    $('engine-state').classList.add('on');
+    nativeStatus('ASIO 연결됨 · 체인 설정을 적용하는 중…');
+    scheduleNativeSync();
+  } catch (error) {
+    $('native-connect').disabled = false;
+    nativeStatus(`연결 실패: --control-port 8765로 엔진을 실행하고 브라우저의 로컬 네트워크 접근을 허용하세요. (${error.message})`, true);
+  }
+};
+$('effect-controls').addEventListener('input', scheduleNativeSync);
+$('effect-controls').addEventListener('change', scheduleNativeSync);
 
 // Keep playback and the effect graph alive while switching workspace panels.
 const viewTabs = [$('tab-practice'), $('tab-effects')];
@@ -385,7 +454,7 @@ function renderLiveSwitch() {
   button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
   button.firstChild.textContent = active ? 'VIOLIN ON ' : 'VIOLIN OFF ';
 }
-function render() { renderChain(); renderEditor(); renderLiveSwitch(); }
+function render() { renderChain(); renderEditor(); renderLiveSwitch(); scheduleNativeSync(); }
 function setEffect(type) {
   if (type && !EFFECTS[type]) return;
   slots[selected] = newSlot(type);
@@ -695,7 +764,7 @@ $('choose-output').onclick = async () => {
   } catch (e) { if (e.name !== 'NotAllowedError') notify(`장치를 선택할 수 없습니다: ${e.message}`, true); }
 };
 $('input-trim').oninput = (e) => { const value = +e.target.value; $('input-trim-value').textContent = `${value >= 0 ? '+' : ''}${value} dB`; if (inputGain) inputGain.gain.setTargetAtTime(10 ** (value / 20), ctx.currentTime, .012); };
-$('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); };
+$('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); scheduleNativeSync(); };
 $('direct-monitor').onclick = () => {
   directMonitor = !directMonitor;
   $('direct-monitor').textContent = `원음 직결 테스트 ${directMonitor ? 'ON' : 'OFF'}`;
@@ -714,6 +783,7 @@ $('mute').onclick = () => {
   $('mute').classList.toggle('active', isMuted);
   $('mute').setAttribute('aria-pressed', String(isMuted));
   if (muteGain) muteGain.gain.setTargetAtTime(isMuted ? 0 : 1, ctx.currentTime, .005);
+  scheduleNativeSync();
   notify(isMuted ? '출력을 음소거했습니다.' : '출력 음소거를 해제했습니다.');
 };
 function switchMode(next) {
