@@ -117,7 +117,24 @@ const sinkAudio = $('sink-audio');
 function nativeStatus(message, error = false) {
   $('native-status').textContent = message;
   $('native-status').classList.toggle('error', error);
-  $('signal-status').textContent = error ? 'ASIO 연결 실패 · 입출력 서랍 확인' : message;
+  $('signal-status').textContent = message;
+}
+function showNativeRouting(connected) {
+  document.body.classList.toggle('asio-active', connected);
+  $('route-pill').textContent = connected ? 'ASIO AUDIO' : 'BROWSER AUDIO';
+  $('asio-route').hidden = !connected;
+  for (const id of ['power', 'input-trim', 'request-input', 'choose-output', 'input-device', 'output-device'])
+    $(id).disabled = connected;
+}
+function nativeDisconnected(message) {
+  nativeConnected = false;
+  clearInterval(nativeHeartbeat);
+  $('native-connect').disabled = false;
+  $('native-connect').textContent = '로컬 엔진 다시 연결';
+  showNativeRouting(false);
+  $('engine-state').textContent = ctx?.state === 'running' ? 'ENGINE ON' : 'ENGINE OFF';
+  $('engine-state').classList.toggle('on', ctx?.state === 'running');
+  nativeStatus(message, true);
 }
 function scheduleNativeSync() {
   if (!nativeConnected) return;
@@ -172,12 +189,7 @@ async function flushNative() {
         (missingIr ? ' · IR 파일을 불러오지 못해 IR만 통과' : ''), !!(nativeLegacy || unsupported.length || missingIr));
     }
   } catch (error) {
-    nativeConnected = false;
-    clearInterval(nativeHeartbeat);
-    $('native-connect').disabled = false;
-    $('native-connect').textContent = '로컬 엔진 다시 연결';
-    for (const id of ['power', 'input-trim', 'request-input', 'choose-output', 'input-device', 'output-device']) $(id).disabled = false;
-    nativeStatus(`ASIO 제어 연결 끊김: ${error.message}. 엔진을 확인한 뒤 다시 연결하세요.`, true);
+    nativeDisconnected(`ASIO 제어 연결 끊김: ${error.message}. 엔진을 확인한 뒤 다시 연결하세요.`);
   } finally { nativeBusy = false; }
 }
 async function connectNative({ quiet = false } = {}) {
@@ -190,16 +202,20 @@ async function connectNative({ quiet = false } = {}) {
     nativeLegacy = !Array.isArray(capabilities.supported);
     nativeTypes = new Set(Array.isArray(capabilities.supported) ? capabilities.supported : ['janray', 'ocd']);
     nativeRate = Number.isFinite(capabilities.rate) ? capabilities.rate : 48000;
+    const route = capabilities.route;
+    if (route?.driver && Number.isInteger(route.input) && Number.isInteger(route.outputLeft) && Number.isInteger(route.outputRight)) {
+      $('asio-route').querySelector('strong').textContent = `${route.driver} · 입력 ${route.input} → 출력 ${route.outputLeft}/${route.outputRight}`;
+      const channelNames = [route.inputName, route.outputLeftName, route.outputRightName].filter(Boolean).join(' / ');
+      $('asio-route').querySelector('p').textContent = `${channelNames ? `${channelNames} · ` : ''}${Math.round(nativeRate / 1000)} kHz · ${route.buffer || '?'} 샘플 버퍼. 아래 출력 레벨과 뮤트가 이 ASIO 경로에 적용됩니다.`;
+    } else {
+      $('asio-route').querySelector('strong').textContent = 'ASIO 입력 → 이펙터 보드 → ASIO 출력';
+      $('asio-route').querySelector('p').textContent = '이 엔진은 현재 장치와 채널 정보를 제공하지 않습니다. 새 버전의 Web Effecter Audio를 실행하면 실제 경로가 표시됩니다.';
+    }
     disconnectLive(); stopFile();
     if (ctx?.state === 'running') await ctx.suspend();
     nativeConnected = true;
     $('native-connect').textContent = 'ASIO 연결됨';
-    $('power').disabled = true;
-    $('input-trim').disabled = true;
-    $('request-input').disabled = true;
-    $('choose-output').disabled = true;
-    $('input-device').disabled = true;
-    $('output-device').disabled = true;
+    showNativeRouting(true);
     $('engine-state').textContent = 'ASIO CONTROL';
     $('engine-state').classList.add('on');
     nativeStatus('ASIO 연결됨 · 체인 설정을 적용하는 중…');
@@ -214,18 +230,13 @@ async function connectNative({ quiet = false } = {}) {
         });
         if (!pulse.ok) throw new Error(`응답 ${pulse.status}`);
       } catch (error) {
-        nativeConnected = false;
-        clearInterval(nativeHeartbeat);
-        $('native-connect').disabled = false;
-        $('native-connect').textContent = '로컬 엔진 다시 연결';
-        nativeStatus(`ASIO 연결 끊김: ${error.message}`, true);
+        nativeDisconnected(`ASIO 연결 끊김: ${error.message}`);
       }
     }, 2000);
   } catch (error) {
-    $('native-connect').disabled = false;
-    nativeStatus(quiet
+    nativeDisconnected(quiet
       ? 'ASIO 엔진이 보이지 않습니다. 최초 한 번 오디오 엔진을 설치한 뒤 새로고침하세요.'
-      : `연결 실패: 설치 파일을 다시 실행해 '로컬 ASIO 엔진 응답 확인 완료'가 뜨는지 확인하세요. 완료됐다면 이 사이트의 로컬 네트워크 권한을 허용하세요. (${error.message})`, true);
+      : `연결 실패: 설치 파일을 다시 실행해 '로컬 ASIO 엔진 응답 확인 완료'가 뜨는지 확인하세요. 완료됐다면 이 사이트의 로컬 네트워크 권한을 허용하세요. (${error.message})`);
   }
 }
 $('native-connect').onclick = () => connectNative();
