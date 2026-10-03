@@ -17,6 +17,10 @@ internal static class Program
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
     Console.WriteLine("WebEffecter.Audio · STA build 4");
     if (args.Contains("--self-test")) return LoopbackControl.SelfTestAsync().GetAwaiter().GetResult();
+    if (args.Length == 0 || args.Contains("--install"))
+        return QuickStart.Install(args);
+    if (args.Contains("--uninstall"))
+        return QuickStart.Uninstall();
     var options = Arguments.Parse(args);
     if (options.List)
     {
@@ -56,6 +60,7 @@ internal static class Program
         _ => throw new ArgumentException($"Unsupported effect: {name}")
     }).ToArray();
     var processor = new MonitorProcessor(options.Measure, options.Tone, options.Gain, options.Rate, effects);
+    if (args.Contains("--daemon")) processor.RequireWebControl();
     device.InitDuplex(new AsioDuplexOptions
     {
         InputChannels = [options.Input],
@@ -94,7 +99,10 @@ internal static class Program
             ? measured >= 0 ? $"Physical loopback: {1000.0 * measured / options.Rate:F2} ms · resyncs {resyncs}" : $"Waiting for return pulse · IN {inputPeak} · OUT {outputPeak} · resyncs {resyncs}"
             : $"Processed {frames / options.Rate}s · IN {inputPeak} · OUT {outputPeak} · driver resyncs {resyncs}");
     }, null, 1000, 1000);
-    Console.ReadLine();
+    if (args.Contains("--daemon"))
+        Thread.Sleep(Timeout.Infinite);
+    else
+        Console.ReadLine();
     timer.Change(Timeout.Infinite, Timeout.Infinite);
     device.Stop();
     return 0;
@@ -116,11 +124,21 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
     internal int ActiveEffectCount => Volatile.Read(ref activeEffects).Length;
     private float outputLevel = 1;
     private int muted;
+    private long lastWebControlTicks = DateTime.UtcNow.Ticks;
+    private int webControlled;
     internal void SetOutput(float level, bool mute)
     {
         Volatile.Write(ref outputLevel, level);
         Volatile.Write(ref muted, mute ? 1 : 0);
+        Interlocked.Exchange(ref lastWebControlTicks, DateTime.UtcNow.Ticks);
+        Volatile.Write(ref webControlled, 1);
     }
+    internal void RequireWebControl()
+    {
+        Volatile.Write(ref muted, 1);
+        Volatile.Write(ref webControlled, 1);
+    }
+    internal void RefreshControl() => Interlocked.Exchange(ref lastWebControlTicks, DateTime.UtcNow.Ticks);
     internal long Frames;
     internal long RoundTripFrames = -1;
     internal int Resyncs;
@@ -192,7 +210,10 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
         else
         {
             var effects = Volatile.Read(ref activeEffects);
-            var outputScale = Volatile.Read(ref muted) != 0 ? 0 : gain * Volatile.Read(ref outputLevel);
+            // A closed tab must not leave a live guitar monitor open indefinitely.
+            var stale = Volatile.Read(ref webControlled) != 0 &&
+                DateTime.UtcNow.Ticks - Interlocked.Read(ref lastWebControlTicks) > TimeSpan.FromSeconds(6).Ticks;
+            var outputScale = stale || Volatile.Read(ref muted) != 0 ? 0 : gain * Volatile.Read(ref outputLevel);
             for (var i = 0; i < b.Frames; i++)
             {
                 var v = input[i];
