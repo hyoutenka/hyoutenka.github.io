@@ -12,6 +12,7 @@ internal sealed class LoopbackControl : IDisposable
     private readonly MonitorProcessor processor;
     private readonly int sampleRate;
     private readonly int port;
+    private readonly string routeJson;
     private static readonly string Capabilities = JsonSerializer.Serialize(new
     {
         ok = true,
@@ -19,10 +20,17 @@ internal sealed class LoopbackControl : IDisposable
     });
     internal int Port => port;
 
-    internal LoopbackControl(int port, int sampleRate, MonitorProcessor processor)
+    internal LoopbackControl(int port, int sampleRate, MonitorProcessor processor,
+        string? driver = null, int input = -1, int left = -1, int right = -1,
+        string? inputName = null, string? leftName = null, string? rightName = null, int buffer = 0)
     {
         this.sampleRate = sampleRate;
         this.processor = processor;
+        routeJson = driver is null ? "null" : JsonSerializer.Serialize(new
+        {
+            driver, input = input + 1, outputLeft = left + 1, outputRight = right + 1,
+            inputName, outputLeftName = leftName, outputRightName = rightName, buffer
+        });
         listener = new TcpListener(IPAddress.Loopback, port);
         listener.Start();
         this.port = ((IPEndPoint)listener.LocalEndpoint).Port;
@@ -88,7 +96,7 @@ internal sealed class LoopbackControl : IDisposable
                 }
                 if (parts[0] == "GET" && parts[1] == "/status")
                 {
-                    await Reply(stream, 200, Capabilities[..^1] + $",\"rate\":{sampleRate},\"count\":{processor.ActiveEffectCount}}}", true, timeout.Token);
+                    await Reply(stream, 200, Capabilities[..^1] + $",\"rate\":{sampleRate},\"count\":{processor.ActiveEffectCount},\"route\":{routeJson}}}", true, timeout.Token);
                     return;
                 }
                 if (parts[0] == "POST" && parts[1] == "/heartbeat")
@@ -232,6 +240,8 @@ internal sealed class LoopbackControl : IDisposable
         using var capabilities = JsonDocument.Parse(await status.Content.ReadAsStringAsync());
         if (!capabilities.RootElement.GetProperty("supported").EnumerateArray().Any(id => id.GetString() == "delay"))
             throw new Exception("Native effect capabilities are missing.");
+        if (capabilities.RootElement.GetProperty("route").ValueKind != JsonValueKind.Null)
+            throw new Exception("Self-test route should be empty without a device.");
         var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"mute\":false}";
         using var accepted = await http.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
         if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1) throw new Exception("Control chain update failed.");
