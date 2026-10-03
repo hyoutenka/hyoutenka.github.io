@@ -14,6 +14,7 @@ internal static class QuickStart
     private static readonly string DirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WebEffecter", "Audio");
     private static readonly string LauncherPath = Path.Combine(DirectoryPath, "start.vbs");
+    internal static readonly string LogPath = Path.Combine(DirectoryPath, "engine.log");
 
     internal static int Install(string[] args)
     {
@@ -74,15 +75,54 @@ internal static class QuickStart
         File.WriteAllText(LauncherPath, vbs, new UTF8Encoding(false));
         using var run = Registry.CurrentUser.CreateSubKey(StartupKey);
         run.SetValue(StartupName, $"wscript.exe //B //Nologo {Quote(LauncherPath)}");
-        Process.Start(new ProcessStartInfo("wscript.exe", $"//B //Nologo {Quote(LauncherPath)}")
+        var launch = new ProcessStartInfo(installed)
         {
             UseShellExecute = false,
             CreateNoWindow = true
-        });
-        Console.WriteLine("설정 완료. 이제 https://hyoutenka.github.io/ 에 접속하면 ASIO가 자동 연결됩니다.");
-        Console.WriteLine("연결되지 않으면 사이트의 '로컬 엔진 다시 연결'을 눌러 주세요.");
-        Console.WriteLine("이 창은 닫아도 됩니다.");
-        return 0;
+        };
+        foreach (var argument in new[] {
+            "--daemon", "--driver", driver,
+            "--input", input.ToString(CultureInfo.InvariantCulture),
+            "--left", left.ToString(CultureInfo.InvariantCulture),
+            "--right", right.ToString(CultureInfo.InvariantCulture),
+            "--rate", rate.ToString(CultureInfo.InvariantCulture),
+            "--buffer", buffer.ToString(CultureInfo.InvariantCulture),
+            "--gain", "0.5", "--control-port", "8765"
+        }) launch.ArgumentList.Add(argument);
+        using var child = Process.Start(launch) ?? throw new InvalidOperationException("Could not start the ASIO engine.");
+        using var http = new HttpClient(new HttpClientHandler { UseProxy = false })
+        {
+            Timeout = TimeSpan.FromMilliseconds(700)
+        };
+        http.DefaultRequestHeaders.Add("Origin", "https://hyoutenka.github.io");
+        for (var attempt = 0; attempt < 16; attempt++)
+        {
+            Thread.Sleep(300);
+            if (child.HasExited) break;
+            try
+            {
+                using var response = http.GetAsync("http://127.0.0.1:8765/status").GetAwaiter().GetResult();
+                if (response.IsSuccessStatusCode && !child.HasExited)
+                {
+                    Thread.Sleep(600);
+                    if (child.HasExited) break;
+                    Console.WriteLine("로컬 ASIO 엔진 응답 확인 완료.");
+                    Console.WriteLine("설정 완료. 이제 https://hyoutenka.github.io/ 에 접속하면 ASIO가 자동 연결됩니다.");
+                    Console.WriteLine("사이트가 이미 열려 있다면 새로고침하세요. 이 창은 닫아도 됩니다.");
+                    return 0;
+                }
+            }
+            catch (HttpRequestException) { }
+            catch (TaskCanceledException) { }
+        }
+        Console.Error.WriteLine("엔진 시작에 실패했습니다. 아래 로그의 끝부분을 확인해 주세요:");
+        if (File.Exists(LogPath))
+            foreach (var line in File.ReadLines(LogPath).TakeLast(12)) Console.Error.WriteLine(line);
+        else
+            Console.Error.WriteLine($"로그 파일이 없습니다: {LogPath}");
+        Console.WriteLine("오류 화면을 확인한 뒤 Enter를 누르면 창이 닫힙니다.");
+        Console.ReadLine();
+        return 1;
     }
 
     internal static int Uninstall()
