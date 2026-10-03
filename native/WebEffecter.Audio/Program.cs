@@ -120,6 +120,8 @@ internal static class Program
     Console.Error.WriteLine(error.Message);
     if (error is COMException com && com.HResult == unchecked((int)0x80004002))
         Console.Error.WriteLine("STA is enabled. Check that --driver matches --list exactly and that the interface's 64-bit ASIO driver is installed.");
+    if (args.Length == 0 || args.Contains("--install"))
+        QuickStart.ShowNotice("설치에 실패했습니다.\n\n" + error.Message, error: true);
     return 1;
   }
   }
