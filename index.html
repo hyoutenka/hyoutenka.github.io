@@ -67,30 +67,31 @@
   <aside id="io-drawer" class="io-drawer" role="dialog" aria-modal="true" aria-labelledby="io-title" hidden>
     <div class="drawer-bar"><span>오디오 라우팅</span><button id="io-drawer-close" class="drawer-close" type="button" aria-label="입출력 설정 닫기">×</button></div>
       <section class="card io-card" aria-labelledby="io-title">
-        <div class="card-head"><div><p class="eyebrow">AUDIO ROUTING</p><h2 id="io-title">입출력</h2></div><span class="pill">LOCAL AUDIO</span></div>
-        <div class="source-tabs" role="group" aria-label="입력 방식"><button id="tab-device" type="button" class="active">오디오 인터페이스</button><button id="tab-file" type="button">녹음 파일</button></div>
-        <div id="device-panel" class="source-panel">
+        <div class="card-head"><div><p class="eyebrow">AUDIO ROUTING</p><h2 id="io-title">입출력</h2></div><span id="route-pill" class="pill">BROWSER AUDIO</span></div>
+        <p class="help browser-routing">아래 장치 선택은 브라우저 오디오 모드에서만 사용합니다. ASIO가 연결되면 실제 경로와 적용되는 조절부만 표시됩니다.</p>
+        <div class="source-tabs browser-routing" role="group" aria-label="입력 방식"><button id="tab-device" type="button" class="active">오디오 인터페이스</button><button id="tab-file" type="button">녹음 파일</button></div>
+        <div id="device-panel" class="source-panel browser-routing">
           <label for="input-device">입력 장치</label><div class="inline"><select id="input-device"><option value="">권한을 허용하면 장치가 표시됩니다</option></select><button id="request-input" class="subtle" type="button">연결</button></div>
           <p class="help">기타가 연결된 인터페이스 입력을 선택하세요. 스피커 피드백을 피하려면 헤드폰을 사용하세요.</p>
         </div>
-        <div class="native-bridge"><div class="native-bridge-head"><strong>저지연 ASIO 엔진</strong><button id="native-connect" class="subtle" type="button">연결 다시 시도</button></div><p id="native-status" class="help" role="status">설치된 오디오 엔진에 자동 연결합니다.</p><p class="help">Windows에서 <a href="https://github.com/hyoutenka/hyoutenka.github.io/releases/download/audio-latest/WebEffecter.Audio.exe" download>Web Effecter Audio 다운로드</a> 후 실행하세요. 업데이트할 때도 새 파일을 실행하면 이전 엔진을 교체합니다. 다음부터는 PC 로그인과 웹 접속 시 자동 연결됩니다. Scarlett 4i4는 입력 2·출력 Playback 3–4를 기본으로 사용합니다. 그 외 장치는 첫 ASIO 드라이버의 입력 1·출력 1–2를 사용합니다.</p><p class="help">보드의 드라이브·컴프레서·딜레이·리버브·모듈레이션·SAW·IR 등을 ASIO에서 처리합니다. 일부 NAM 캡처와 피치 시프터는 미지원으로 표시하며 그 블록만 건너뜁니다. IR은 실시간 경로에서 앞부분 약 21ms를 적용합니다.</p></div>
-        <div id="file-panel" class="source-panel" hidden>
+        <div class="native-bridge"><div class="native-bridge-head"><strong>저지연 ASIO 엔진</strong><button id="native-connect" class="subtle" type="button">연결 다시 시도</button></div><p id="native-status" class="help" role="status">설치된 오디오 엔진에 자동 연결합니다.</p><div id="asio-route" class="asio-route" hidden><strong>ASIO 입력 → 이펙터 보드 → ASIO 출력</strong><p>장치와 채널은 로컬 ASIO 엔진의 설정을 사용합니다. 아래 출력 레벨과 뮤트는 실제 ASIO 소리에 적용됩니다.</p></div><p class="help">Windows에서 <a href="https://github.com/hyoutenka/hyoutenka.github.io/releases/download/audio-latest/WebEffecter.Audio.exe" download>Web Effecter Audio 다운로드</a> 후 실행하세요. 업데이트할 때도 새 파일을 실행하면 이전 엔진을 교체합니다. 다음부터는 PC 로그인과 웹 접속 시 자동 연결됩니다. Scarlett 4i4는 입력 2·출력 Playback 3–4를 기본으로 사용합니다. 그 외 장치는 첫 ASIO 드라이버의 입력 1·출력 1–2를 사용합니다.</p><p class="help">보드의 드라이브·컴프레서·딜레이·리버브·모듈레이션·SAW·IR 등을 ASIO에서 처리합니다. 일부 NAM 캡처와 피치 시프터는 미지원으로 표시하며 그 블록만 건너뜁니다. IR은 실시간 경로에서 앞부분 약 21ms를 적용합니다.</p></div>
+        <div id="file-panel" class="source-panel browser-routing" hidden>
           <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
           <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
         </div>
-        <div class="level-row input-level-row"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
-        <div class="divider"></div>
-        <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
-        <div id="route-guide" class="route-guide" role="status">인터페이스를 연결하면 입력·출력 장치 조합을 확인합니다.</div>
-        <button id="match-output" class="subtle match-output" type="button" hidden>입력과 같은 인터페이스로 출력</button>
+        <div class="level-row input-level-row browser-routing"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
+        <div class="divider browser-routing"></div>
+        <label for="output-device" class="browser-routing">출력 장치</label><div class="inline browser-routing"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
+        <div id="route-guide" class="route-guide browser-routing" role="status">인터페이스를 연결하면 입력·출력 장치 조합을 확인합니다.</div>
+        <button id="match-output" class="subtle match-output browser-routing" type="button" hidden>입력과 같은 인터페이스로 출력</button>
         <div class="level-row"><div class="master-heading"><label for="master-volume">출력 레벨 <output id="master-value">100%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="200" value="100"></div>
-        <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
-        <div class="monitor-test"><button id="direct-monitor" class="subtle" type="button" aria-pressed="false">원음 직결 테스트 OFF</button><p class="help">켜면 이펙터를 지나지 않은 입력을 같은 출력으로 듣습니다. 원음도 늦으면 장치·브라우저 경로의 지연을 확인하세요.</p></div>
-        <p id="latency-status" class="latency-status">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
+        <div class="meters browser-routing"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
+        <div class="monitor-test browser-routing"><button id="direct-monitor" class="subtle" type="button" aria-pressed="false">원음 직결 테스트 OFF</button><p class="help">켜면 이펙터를 지나지 않은 입력을 같은 출력으로 듣습니다. 원음도 늦으면 장치·브라우저 경로의 지연을 확인하세요.</p></div>
+        <p id="latency-status" class="latency-status browser-routing">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
       </section>
 
   </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=asio-pedals-1"></script>
+  <script type="module" src="./app.js?v=asio-routing-1"></script>
 </body>
 </html>
