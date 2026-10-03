@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111418">
   <meta name="description" content="기타 신호를 8개 이펙트 슬롯에 연결하고 실시간으로 들어보는 웹 페달보드">
   <title>web effecter — Guitar signal lab</title>
-  <link rel="stylesheet" href="./styles.css?v=stack-meter-1">
+  <link rel="stylesheet" href="./styles.css?v=latency-1">
 </head>
 <body>
   <header class="topbar">
@@ -82,11 +82,12 @@
         <label for="output-device">출력 장치</label><div class="inline"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
         <div class="level-row"><div class="master-heading"><label for="master-volume">출력 레벨 <output id="master-value">100%</output></label><button id="mute" class="mute-button" type="button" aria-pressed="false">뮤트 OFF</button></div><input id="master-volume" type="range" min="0" max="200" value="100"></div>
         <div class="meters"><div><span>IN</span><div class="meter"><i id="input-meter"></i></div><output id="input-level">−∞ dBFS</output></div><div><span>OUT</span><div class="meter"><i id="output-meter"></i></div><output id="output-level">−∞ dBFS</output></div></div>
+        <div class="monitor-test"><button id="direct-monitor" class="subtle" type="button" aria-pressed="false">원음 직결 테스트 OFF</button><p class="help">켜면 이펙터를 지나지 않은 입력을 같은 출력으로 듣습니다. 원음도 늦으면 장치·브라우저 경로의 지연을 확인하세요.</p></div>
         <p id="latency-status" class="latency-status">오디오를 시작하면 브라우저의 지연 시간 추정치를 표시합니다.</p>
       </section>
 
   </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=catalog-audit-1"></script>
+  <script type="module" src="./app.js?v=latency-1"></script>
 </body>
 </html>

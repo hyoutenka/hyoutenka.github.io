@@ -1,4 +1,4 @@
-import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=catalog-audit-1';
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=latency-1';
 import { makeCatalogUnit } from './catalog-dsp.js?v=catalog-audit-1';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
@@ -68,8 +68,8 @@ const EFFECTS = {
   delay: { name: 'Delay', category: 'TIME', symbol: '↝', description: '소리를 일정 시간 뒤에 반복합니다.', params: { time: ['Time', 60, 800, 320, ' ms'], feedback: ['Feedback', 0, 85, 35, '%'], mix: ['Mix', 0, 80, 25, '%'] } },
   reverb: { name: 'Reverb', category: 'SPACE', symbol: '⌁', description: '실내의 울림을 합성합니다.', params: { decay: ['Decay', 1, 6, 3, ' s'], mix: ['Mix', 0, 80, 27, '%'] } },
   tremolo: { name: 'Tremolo', category: 'MODULATION', symbol: '∿', description: '음량을 주기적으로 떨리게 합니다.', params: { rate: ['Rate', 1, 12, 5, ' Hz'], depth: ['Depth', 0, 100, 50, '%'] } },
-  saw: { name: 'SAW Synth', category: 'WAVE CONVERT', symbol: '⋈', description: '기타 DI의 단음 피치와 세기를 따라 SAW 파형을 새로 만듭니다. Attack으로 소리가 시작되는 속도를 정하세요.', params: { attack: ['Attack', 20, 500, 145, ' ms'], release: ['Release', 80, 1800, 680, ' ms'], vibrato: ['Vibrato', 0, 30, 7, ' cent'], brightness: ['Brightness', 0, 100, 44, '%'] } },
-  synth: { name: 'Mono Synth', category: 'PITCH SYNTH', symbol: '◈', description: '기타의 단음 피치와 세기를 추적해 Sine, Triangle, Square 파형으로 합성합니다. 화음 연주에는 적합하지 않습니다.', params: { waveform: ['Waveform', 0, 2, 0, ''], attack: ['Attack', 20, 500, 100, ' ms'], release: ['Release', 80, 1800, 450, ' ms'], brightness: ['Brightness', 0, 100, 60, '%'] } },
+  saw: { name: 'SAW Synth', category: 'WAVE CONVERT', symbol: '⋈', description: '기타 DI의 단음 피치와 세기를 따라 SAW 파형을 새로 만듭니다. Attack으로 소리가 시작되는 속도를 정하세요.', params: { attack: ['Attack', 5, 500, 25, ' ms'], release: ['Release', 80, 1800, 680, ' ms'], vibrato: ['Vibrato', 0, 30, 7, ' cent'], brightness: ['Brightness', 0, 100, 44, '%'] } },
+  synth: { name: 'Mono Synth', category: 'PITCH SYNTH', symbol: '◈', description: '기타의 단음 피치와 세기를 추적해 Sine, Triangle, Square 파형으로 합성합니다. 화음 연주에는 적합하지 않습니다.', params: { waveform: ['Waveform', 0, 2, 0, ''], attack: ['Attack', 5, 500, 20, ' ms'], release: ['Release', 80, 1800, 450, ' ms'], brightness: ['Brightness', 0, 100, 60, '%'] } },
   amp: { name: 'Amp', category: 'PREAMP', symbol: '▥', description: '프리앰프의 저역 정리, 소프트 클리핑, 고역 롤오프를 간단히 모사합니다. 스피커 응답은 필요하면 뒤에 IR 블록을 추가하세요.', params: { gain: ['Gain', 0, 100, 35, '%'], tone: ['Tone', 0, 100, 55, '%'], level: ['Level', 0, 100, 60, '%'] } },
   ir: { name: 'IR', category: 'CONVOLUTION', symbol: '⌁', description: '불러온 임펄스 응답(IR)을 입력 신호에 적용합니다. 바이올린 바디 IR뿐 아니라 다른 악기·공간 IR도 사용할 수 있습니다.', params: { mix: ['IR mix', 0, 100, 100, '%'] } }
 };
@@ -104,6 +104,7 @@ const newSlot = (type = null) => ({ type, bypass: false, values: type ? Object.f
 let slots = Array.from({ length: 8 }, () => newSlot());
 let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'device';
 let ctx, sourceBus, inputGain, inputAnalyser, outputAnalyser, master, limiter, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
+let directMonitorGain, chainMonitorGain, directMonitor = false;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
@@ -177,7 +178,8 @@ function refreshLatencyInfo() {
   if (Number.isFinite(inputLatency)) parts.push(`입력 ${Math.round(inputLatency * 1000)}ms`);
   if (Number.isFinite(ctx.baseLatency)) parts.push(`엔진 ${Math.round(ctx.baseLatency * 1000)}ms`);
   if (Number.isFinite(ctx.outputLatency)) parts.push(`출력 ${Math.round(ctx.outputLatency * 1000)}ms`);
-  $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'} · 실제 연주 지연은 장치에 따라 다릅니다.`;
+  const route = outputRoute === 'media' ? ' · 미디어 경유 출력(추가 지연 가능)' : ' · 직접 출력';
+  $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'}${route} · 실제 연주 지연은 장치에 따라 다릅니다.`;
 }
 function markCustom() { $('preset').value = 'custom'; }
 let nodeDrag = null, suppressNodeClick = false, chainAnimationTimer;
@@ -565,7 +567,7 @@ function rebuild() {
     unit.nodes.push(meter); unit.meter = meter;
     cursor.connect(unit.input); unit.output.connect(meter); cursor = meter;
   }
-  cursor.connect(chainGain).connect(master);
+  cursor.connect(chainGain).connect(chainMonitorGain).connect(master);
   if (previousGain) {
     const now = ctx.currentTime;
     previousGain.gain.setTargetAtTime(0, now, .009);
@@ -583,17 +585,21 @@ async function startEngine() {
   if (!window.AudioContext) throw new Error('이 브라우저는 Web Audio를 지원하지 않습니다.');
   ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
   try {
-    await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js?v=waveforms-1', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js?v=fast-attack-1', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
-    await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=catalog-4', import.meta.url));
+    await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=latency-1', import.meta.url));
     sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createDynamicsCompressor(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
+    directMonitorGain = ctx.createGain(); chainMonitorGain = ctx.createGain();
+    directMonitorGain.gain.value = directMonitor ? 1 : 0;
+    chainMonitorGain.gain.value = directMonitor ? 0 : 1;
     inputAnalyser.fftSize = outputAnalyser.fftSize = 1024;
     inputGain.gain.value = 10 ** (+$('input-trim').value / 20);
     master.gain.value = +$('master-volume').value / 100; muteGain.gain.value = isMuted ? 0 : 1;
     limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .002; limiter.release.value = .08;
     sourceBus.connect(inputGain).connect(inputAnalyser);
+    inputAnalyser.connect(directMonitorGain).connect(master);
     master.connect(limiter).connect(muteGain).connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
     rebuild(); await ctx.resume(); $('engine-state').textContent = 'ENGINE ON'; $('engine-state').classList.add('on'); $('power').textContent = '⏻ 오디오 실행 중'; refreshLatencyInfo();
     if (CAB_IRS[irSelection]) void loadLibraryIR(irSelection);
@@ -645,7 +651,10 @@ async function routeOutput(id) {
       await sinkAudio.setSinkId(id); sinkAudio.srcObject = mediaDest.stream; await sinkAudio.play();
       outputBus.disconnect(); outputBus.connect(mediaDest); outputRoute = 'media';
     }
-    activeOutput = id; refreshLatencyInfo(); notify(id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 연결했습니다.');
+    activeOutput = id; refreshLatencyInfo();
+    notify(outputRoute === 'media'
+      ? '선택한 출력은 미디어 스트림을 경유하여 지연이 커질 수 있습니다. 시스템 기본 출력으로 바꾸면 직접 경로를 사용합니다.'
+      : id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 직접 연결했습니다.');
   } catch (e) { notify(`출력 변경 실패: ${e.message}`, true); $('output-device').value = activeOutput; }
 }
 $('output-device').onchange = (e) => routeOutput(e.target.value);
@@ -658,6 +667,18 @@ $('choose-output').onclick = async () => {
 };
 $('input-trim').oninput = (e) => { const value = +e.target.value; $('input-trim-value').textContent = `${value >= 0 ? '+' : ''}${value} dB`; if (inputGain) inputGain.gain.setTargetAtTime(10 ** (value / 20), ctx.currentTime, .012); };
 $('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); };
+$('direct-monitor').onclick = () => {
+  directMonitor = !directMonitor;
+  $('direct-monitor').textContent = `원음 직결 테스트 ${directMonitor ? 'ON' : 'OFF'}`;
+  $('direct-monitor').setAttribute('aria-pressed', String(directMonitor));
+  $('direct-monitor').classList.toggle('active', directMonitor);
+  if (ctx) {
+    const at = ctx.currentTime;
+    directMonitorGain.gain.setTargetAtTime(directMonitor ? 1 : 0, at, .005);
+    chainMonitorGain.gain.setTargetAtTime(directMonitor ? 0 : 1, at, .005);
+  }
+  notify(directMonitor ? '같은 입출력 장치에서 이펙터를 제외한 원음을 듣고 있습니다.' : '이펙터 체인 출력을 듣고 있습니다.');
+};
 $('mute').onclick = () => {
   isMuted = !isMuted;
   $('mute').textContent = isMuted ? '뮤트 ON' : '뮤트 OFF';

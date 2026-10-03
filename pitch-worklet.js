@@ -13,12 +13,12 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
     this.hasPitch = false;
     this.time = 0;
     this.level = 0;
-    this.attack = 145;
+    this.attack = 25;
     this.release = 680;
     this.vibrato = 7;
     this.waveform = 'saw';
     this.port.onmessage = ({ data }) => {
-      this.attack = Math.max(20, Math.min(500, +data.attack || 145));
+      this.attack = Math.max(5, Math.min(500, +data.attack || 25));
       this.release = Math.max(80, Math.min(1800, +data.release || 680));
       this.vibrato = Math.max(0, Math.min(30, +data.vibrato || 0));
       this.waveform = ['saw', 'sine', 'triangle', 'square'].includes(data.waveform) ? data.waveform : 'saw';
@@ -80,7 +80,7 @@ class GuitarSawProcessor extends AudioWorkletProcessor {
       const sample = mono ? mono[i] || 0 : 0;
       this.ring[this.pos] = sample;
       this.pos = (this.pos + 1) % this.ring.length;
-      if (++this.counter >= 1024) { this.counter = 0; this.detect(); }
+      if (++this.counter >= 512) { this.counter = 0; this.detect(); }
       const target = this.level > 0.008 ? Math.min(0.7, Math.sqrt(this.level * 2) * 0.65) : 0;
       this.env += (target - this.env) * (target > this.env ? attackStep : releaseStep);
       this.smooth += (this.freq - this.smooth) * 0.0013;

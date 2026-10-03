@@ -10,7 +10,7 @@ const sliders = {
   tremolo: { rate: ['Rate', 1, 120, 34, '%'], depth: ['Depth', 0, 100, 58, '%'], shape: ['Wave shape', 0, 100, 20, '%'] },
   delay: { time: ['Time', 50, 1200, 380, ' ms'], feedback: ['Feedback', 0, 85, 38, '%'], tone: ['Tone', 0, 100, 55, '%'], mix: ['Mix', 0, 80, 28, '%'] },
   reverb: { decay: ['Decay', 1, 10, 4, ' s'], tone: ['Tone', 0, 100, 55, '%'], predelay: ['Pre-delay', 0, 150, 20, ' ms'], mix: ['Mix', 0, 80, 30, '%'] },
-  pitch: { semitones: ['Shift', -12, 12, 7, ' st'], mix: ['Mix', 0, 100, 70, '%'], window: ['Window', 30, 85, 52, ' ms'] },
+  pitch: { semitones: ['Shift', -12, 12, 7, ' st'], mix: ['Mix', 0, 100, 70, '%'], window: ['Window', 30, 85, 35, ' ms'] },
   filter: { sweep: ['Sweep', 0, 100, 50, '%'], resonance: ['Resonance', 1, 18, 7, ' Q'], mix: ['Mix', 0, 100, 100, '%'] }
 };
 const MODEL_ROWS = [

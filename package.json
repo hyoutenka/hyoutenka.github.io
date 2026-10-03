@@ -2,6 +2,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/catalog-regression.mjs"
+    "test": "node tests/catalog-regression.mjs && node tests/latency-regression.mjs"
   }
 }

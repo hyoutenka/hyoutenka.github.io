@@ -8,10 +8,10 @@ class CatalogPitchProcessor extends AudioWorkletProcessor {
     this.write = 0;
     this.phase = 0;
     this.ratio = 2;
-    this.window = Math.round(sampleRate * .052);
+    this.window = Math.round(sampleRate * .035);
     this.port.onmessage = ({data}) => {
       this.ratio = Math.pow(2, Math.max(-12, Math.min(12, +data.semitones || 0)) / 12);
-      this.window = Math.max(1024, Math.min(4096, Math.round(sampleRate * Math.max(30, Math.min(85, +data.window || 52)) / 1000)));
+      this.window = Math.max(1024, Math.min(4096, Math.round(sampleRate * Math.max(30, Math.min(85, +data.window || 35)) / 1000)));
     };
   }
   read(buffer, offset) {
