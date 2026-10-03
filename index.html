@@ -73,7 +73,7 @@
           <label for="input-device">입력 장치</label><div class="inline"><select id="input-device"><option value="">권한을 허용하면 장치가 표시됩니다</option></select><button id="request-input" class="subtle" type="button">연결</button></div>
           <p class="help">기타가 연결된 인터페이스 입력을 선택하세요. 스피커 피드백을 피하려면 헤드폰을 사용하세요.</p>
         </div>
-        <div class="native-bridge"><div class="native-bridge-head"><strong>저지연 ASIO 엔진</strong><button id="native-connect" class="subtle" type="button">연결 다시 시도</button></div><p id="native-status" class="help" role="status">설치된 오디오 엔진에 자동 연결합니다.</p><p class="help">Windows에서 처음 한 번 <a href="https://github.com/hyoutenka/hyoutenka.github.io/releases/download/audio-latest/WebEffecter.Audio.exe" download>Web Effecter Audio 다운로드</a> 후 실행하세요. 다음부터는 PC 로그인과 웹 접속 시 자동 연결됩니다. Scarlett 4i4는 입력 2·출력 Playback 3–4를 기본으로 사용합니다. 그 외 장치는 첫 ASIO 드라이버의 입력 1·출력 1–2를 사용합니다.</p><p class="help">연결 시 웹 기타 모니터가 멈추며, 현재 ASIO 엔진은 Jan Ray·OCD와 출력 레벨·뮤트를 지원합니다.</p></div>
+        <div class="native-bridge"><div class="native-bridge-head"><strong>저지연 ASIO 엔진</strong><button id="native-connect" class="subtle" type="button">연결 다시 시도</button></div><p id="native-status" class="help" role="status">설치된 오디오 엔진에 자동 연결합니다.</p><p class="help">Windows에서 <a href="https://github.com/hyoutenka/hyoutenka.github.io/releases/download/audio-latest/WebEffecter.Audio.exe" download>Web Effecter Audio 다운로드</a> 후 실행하세요. 업데이트할 때도 새 파일을 실행하면 이전 엔진을 교체합니다. 다음부터는 PC 로그인과 웹 접속 시 자동 연결됩니다. Scarlett 4i4는 입력 2·출력 Playback 3–4를 기본으로 사용합니다. 그 외 장치는 첫 ASIO 드라이버의 입력 1·출력 1–2를 사용합니다.</p><p class="help">보드의 드라이브·컴프레서·딜레이·리버브·모듈레이션·SAW·IR 등을 ASIO에서 처리합니다. 일부 NAM 캡처와 피치 시프터는 미지원으로 표시하며 그 블록만 건너뜁니다. IR은 실시간 경로에서 앞부분 약 43ms를 적용합니다.</p></div>
         <div id="file-panel" class="source-panel" hidden>
           <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
           <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
@@ -91,6 +91,6 @@
 
   </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=asio-auto-2"></script>
+  <script type="module" src="./app.js?v=asio-pedals-1"></script>
 </body>
 </html>
