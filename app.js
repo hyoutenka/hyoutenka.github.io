@@ -117,6 +117,7 @@ const sinkAudio = $('sink-audio');
 function nativeStatus(message, error = false) {
   $('native-status').textContent = message;
   $('native-status').classList.toggle('error', error);
+  $('signal-status').textContent = error ? 'ASIO 연결 실패 · 입출력 서랍 확인' : message;
 }
 function scheduleNativeSync() {
   if (!nativeConnected) return;
@@ -668,7 +669,9 @@ function rebuild() {
       previousGain.disconnect();
     }, 100);
   }
-  $('signal-status').textContent = units.length ? `${units.length}개 이펙트 연결` : '드라이 신호';
+  $('signal-status').textContent = nativeConnected || $('native-status').classList.contains('error')
+    ? $('native-status').classList.contains('error') ? 'ASIO 연결 실패 · 입출력 서랍 확인' : $('native-status').textContent
+    : units.length ? `${units.length}개 이펙트 연결` : '드라이 신호';
 }
 async function startEngine() {
   if (ctx) { if (ctx.state !== 'running') await ctx.resume(); return; }

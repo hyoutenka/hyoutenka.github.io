@@ -75,7 +75,8 @@ internal sealed class LoopbackControl : IDisposable
                     await Reply(stream, 403, "{\"error\":\"Origin not allowed\"}", false, timeout.Token);
                     return;
                 }
-                if (parts[0] == "OPTIONS" && parts[1] == "/chain")
+                // Chrome can preflight even a GET when the public page calls loopback.
+                if (parts[0] == "OPTIONS" && (parts[1] is "/chain" or "/status"))
                 {
                     await Reply(stream, 204, "", true, timeout.Token);
                     return;
@@ -114,6 +115,7 @@ internal sealed class LoopbackControl : IDisposable
                     var mute = document.RootElement.TryGetProperty("mute", out var muteField) && muteField.ValueKind == JsonValueKind.True;
                     processor.SetEffects(effects);
                     processor.SetOutput((float)output, mute);
+                    Console.WriteLine($"Web chain applied: {(effects.Length == 0 ? "dry" : string.Join(" -> ", effects.Select(effect => effect is JanRayEffect ? "janray" : "ocd")))} · level {output:P0} · mute {mute}");
                     await Reply(stream, 200, $"{{\"ok\":true,\"count\":{effects.Length}}}", true, timeout.Token);
                 }
                 catch (Exception error) when (error is JsonException or ArgumentException or InvalidOperationException or KeyNotFoundException)
@@ -185,9 +187,18 @@ internal sealed class LoopbackControl : IDisposable
         var url = $"http://127.0.0.1:{server.Port}";
         using var preflight = new HttpRequestMessage(HttpMethod.Options, url + "/chain");
         preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Private-Network", "true");
         using var options = await http.SendAsync(preflight);
         if (options.StatusCode != HttpStatusCode.NoContent || options.Headers.GetValues("Access-Control-Allow-Origin").Single() != AllowedOrigin)
             throw new Exception("Control preflight failed.");
+        using var getPreflight = new HttpRequestMessage(HttpMethod.Options, url + "/status");
+        getPreflight.Headers.Add("Access-Control-Request-Method", "GET");
+        getPreflight.Headers.Add("Access-Control-Request-Private-Network", "true");
+        using var getOptions = await http.SendAsync(getPreflight);
+        if (getOptions.StatusCode != HttpStatusCode.NoContent || getOptions.Headers.GetValues("Access-Control-Allow-Private-Network").Single() != "true")
+            throw new Exception("GET status private-network preflight failed.");
+        using var status = await http.GetAsync(url + "/status");
+        if (!status.IsSuccessStatusCode) throw new Exception("GET status failed.");
         var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"mute\":false}";
         using var accepted = await http.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
         if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1) throw new Exception("Control chain update failed.");
