@@ -110,7 +110,7 @@ let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeO
 let isMuted = false, outputRoute = 'context';
 let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
 const NATIVE_URL = 'http://127.0.0.1:8765';
-const NATIVE_TYPES = new Set(['janray', 'ocd']);
+let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000;
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
@@ -125,25 +125,50 @@ function scheduleNativeSync() {
   clearTimeout(nativeTimer);
   nativeTimer = setTimeout(() => void flushNative(), 80);
 }
+function nativeImpulse() {
+  if (!slots.some(slot => slot.type === 'ir' && !slot.bypass)) return undefined;
+  const length = 2048, samples = new Float32Array(length);
+  if (irBuffer) {
+    const channel = irBuffer.getChannelData(0), step = irBuffer.sampleRate / nativeRate;
+    for (let i = 0; i < length && i * step < channel.length; i++) {
+      const offset = i * step, left = Math.floor(offset), fraction = offset - left;
+      samples[i] = channel[left] * (1 - fraction) + (channel[Math.min(left + 1, channel.length - 1)] || 0) * fraction;
+    }
+  } else if (irSelection === 'body') {
+    // Short synthetic body response for the built-in demo selection.
+    samples[0] = .42;
+    for (let i = 1; i < length; i++) {
+      const t = i / nativeRate;
+      samples[i] = .045 * Math.exp(-t * 140) *
+        (Math.sin(2 * Math.PI * 285 * t) + .7 * Math.sin(2 * Math.PI * 465 * t) + .4 * Math.sin(2 * Math.PI * 690 * t));
+    }
+  } else return undefined;
+  const bytes = new Uint8Array(samples.buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1024)
+    binary += String.fromCharCode(...bytes.subarray(i, i + 1024));
+  return btoa(binary);
+}
 async function flushNative() {
   if (nativeBusy || !nativeConnected) return;
   nativeBusy = true;
   try {
     while (nativeConnected && nativeApplied < nativeRevision) {
       const revision = nativeRevision;
-      const unsupported = slots.filter(slot => slot.type && !slot.bypass && !NATIVE_TYPES.has(slot.type));
-      // An unsupported chain must never leave the previous, different tone active.
-      const payload = { slots: unsupported.length ? [] : slots.map(({ type, bypass, values }) => ({ type, bypass, values })),
-        level: +$('master-volume').value / 100, mute: isMuted };
+      const unsupported = slots.filter(slot => slot.type && !slot.bypass && !nativeTypes.has(slot.type));
+      const payload = { slots: slots.filter(slot => !slot.type || slot.bypass || nativeTypes.has(slot.type))
+        .map(({ type, bypass, values }) => ({ type, bypass, values })),
+        level: +$('master-volume').value / 100, mute: isMuted, impulse: nativeImpulse() };
       const response = await fetch(`${NATIVE_URL}/chain`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), cache: 'no-store', targetAddressSpace: 'loopback'
       });
       if (!response.ok) throw new Error(`제어 요청 실패 (${response.status})`);
       nativeApplied = revision;
-      nativeStatus(unsupported.length
-        ? `ASIO 원음 출력 · 아직 네이티브 엔진에 없는 블록: ${[...new Set(unsupported.map(s => EFFECTS[s.type]?.name || s.type))].join(', ')}`
-        : `ASIO 연결됨 · ${payload.slots.filter(s => s.type && !s.bypass).length}개 이펙트 적용${isMuted ? ' · 뮤트' : ''}`, !!unsupported.length);
+      const missingIr = slots.some(slot => slot.type === 'ir' && !slot.bypass) && !payload.impulse;
+      nativeStatus(`ASIO 연결됨 · ${payload.slots.filter(s => s.type && !s.bypass).length}개 이펙트 적용${isMuted ? ' · 뮤트' : ''}` +
+        (unsupported.length ? ` · 미지원 블록 건너뜀: ${[...new Set(unsupported.map(s => EFFECTS[s.type]?.name || s.type))].join(', ')}` : '') +
+        (missingIr ? ' · IR 파일을 불러오지 못해 IR만 통과' : ''), !!(unsupported.length || missingIr));
     }
   } catch (error) {
     nativeConnected = false;
@@ -160,6 +185,9 @@ async function connectNative({ quiet = false } = {}) {
   try {
     const response = await fetch(`${NATIVE_URL}/status`, { cache: 'no-store', targetAddressSpace: 'loopback' });
     if (!response.ok) throw new Error(`응답 ${response.status}`);
+    const capabilities = await response.json();
+    nativeTypes = new Set(Array.isArray(capabilities.supported) ? capabilities.supported : ['janray', 'ocd']);
+    nativeRate = Number.isFinite(capabilities.rate) ? capabilities.rate : 48000;
     disconnectLive(); stopFile();
     if (ctx?.state === 'running') await ctx.suspend();
     nativeConnected = true;
@@ -173,6 +201,7 @@ async function connectNative({ quiet = false } = {}) {
     $('engine-state').textContent = 'ASIO CONTROL';
     $('engine-state').classList.add('on');
     nativeStatus('ASIO 연결됨 · 체인 설정을 적용하는 중…');
+    if (CAB_IRS[irSelection] && !irBuffer && slots.some(slot => slot.type === 'ir' && !slot.bypass)) void loadLibraryIR(irSelection);
     scheduleNativeSync();
     clearInterval(nativeHeartbeat);
     nativeHeartbeat = setInterval(async () => {
@@ -482,7 +511,7 @@ function setEffect(type) {
   if ((type === 'ir' && slots.some(slot => slot.type === 'saw')) || (type === 'saw' && slots.some(slot => slot.type === 'ir') && irSelection === 'body')) {
     irSelection = 'violin_treble'; irBuffer = null;
     $('ir-name').textContent = `${CAB_IRS[irSelection].name} IR을 ${ctx ? '불러오는 중…' : '오디오 시작 시 불러옵니다.'}`;
-    if (ctx) void loadLibraryIR(irSelection);
+    if (ctx || nativeConnected) void loadLibraryIR(irSelection);
   }
   pickerOpen = false; markCustom(); render(); rebuild();
 }
@@ -542,7 +571,7 @@ $('preset').onchange = (event) => {
   const key = event.target.value, preset = presets[key], model = NAM_MODELS[key]; if (!preset || !model) return;
   slots = preset.map(newSlot); selected = 0; pickerOpen = false; irBuffer = null; irSelection = model.ir;
   $('ir-name').textContent = `${CAB_IRS[irSelection].name} IR을 ${ctx ? '불러오는 중…' : '오디오 시작 시 불러옵니다.'}`;
-  render(); rebuild(); if (ctx) void loadLibraryIR(irSelection);
+  render(); rebuild(); if (ctx || nativeConnected) void loadLibraryIR(irSelection);
   notify(`${model.name} → ${CAB_IRS[irSelection].name} IR 프리셋을 선택했습니다.`);
 };
 
@@ -833,21 +862,22 @@ async function loadLibraryIR(selection) {
   try {
     const response = await fetch(new URL(CAB_IRS[selection].url, import.meta.url));
     if (!response.ok) throw new Error(`IR 요청 실패 (${response.status})`);
-    const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+    const decoder = ctx || new OfflineAudioContext(1, nativeRate, nativeRate);
+    const buffer = await decoder.decodeAudioData(await response.arrayBuffer());
     if (selection !== irSelection) return;
-    irBuffer = buffer; refreshIRUnits(); $('ir-name').textContent = `적용됨: ${CAB_IRS[selection].name} IR`;
+    irBuffer = buffer; refreshIRUnits(); scheduleNativeSync(); $('ir-name').textContent = `적용됨: ${CAB_IRS[selection].name} IR`;
     notify('IR을 적용했습니다.');
-  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; $('ir-source').hidden = true; refreshIRUnits(); notify(`IR을 불러오지 못했습니다: ${error.message}`, true); }
+  } catch (error) { if (selection !== irSelection) return; irSelection = 'none'; $('ir-library').value = 'none'; $('ir-source').hidden = true; refreshIRUnits(); scheduleNativeSync(); notify(`IR을 불러오지 못했습니다: ${error.message}`, true); }
 }
 $('ir-library').onchange = async (event) => {
-  irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom();
+  irSelection = event.target.value; irBuffer = null; refreshIRUnits(); markCustom(); scheduleNativeSync();
   updateIRSource();
-  if (CAB_IRS[irSelection]) { $('ir-name').textContent = 'IR을 불러오는 중…'; if (await ensureEngine()) void loadLibraryIR(irSelection); }
+  if (CAB_IRS[irSelection]) { $('ir-name').textContent = 'IR을 불러오는 중…'; if (nativeConnected || await ensureEngine()) void loadLibraryIR(irSelection); }
   else { $('ir-name').textContent = irSelection === 'none' ? 'IR을 사용하지 않습니다.' : '데모용 합성 바디 IR을 적용했습니다.'; notify($('ir-name').textContent); }
 };
 $('ir-file').onchange = async (e) => {
-  const file = e.target.files?.[0]; if (!file || !await ensureEngine()) return;
-  try { irBuffer = await ctx.decodeAudioData(await file.arrayBuffer()); irSelection = 'custom'; $('ir-library').value = 'custom'; $('ir-source').hidden = true; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; refreshIRUnits(); notify('사용자 IR을 적용했습니다.'); }
+  const file = e.target.files?.[0]; if (!file || (!nativeConnected && !await ensureEngine())) return;
+  try { irBuffer = await (ctx || new OfflineAudioContext(1, nativeRate, nativeRate)).decodeAudioData(await file.arrayBuffer()); irSelection = 'custom'; $('ir-library').value = 'custom'; $('ir-source').hidden = true; $('ir-name').textContent = `적용됨: ${file.name} (${irBuffer.duration.toFixed(2)}초)`; refreshIRUnits(); scheduleNativeSync(); notify('사용자 IR을 적용했습니다.'); }
   catch { notify('IR 파일을 읽을 수 없습니다.', true); }
 };
 function meterLoop() {
