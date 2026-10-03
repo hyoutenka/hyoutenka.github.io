@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="3.1.0" />
+    <EmbeddedResource Include="catalog-voices.json" LogicalName="catalog-voices.json" />
   </ItemGroup>
 </Project>
