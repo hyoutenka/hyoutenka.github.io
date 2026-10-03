@@ -110,7 +110,7 @@ let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeO
 let isMuted = false, outputRoute = 'context';
 let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
 const NATIVE_URL = 'http://127.0.0.1:8765';
-let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000;
+let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000, nativeLegacy = false;
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
@@ -167,8 +167,9 @@ async function flushNative() {
       nativeApplied = revision;
       const missingIr = slots.some(slot => slot.type === 'ir' && !slot.bypass) && !payload.impulse;
       nativeStatus(`ASIO 연결됨 · ${payload.slots.filter(s => s.type && !s.bypass).length}개 이펙트 적용${isMuted ? ' · 뮤트' : ''}` +
+        (nativeLegacy ? ' · 구버전 엔진: 위 다운로드 파일을 다시 실행하세요' : '') +
         (unsupported.length ? ` · 미지원 블록 건너뜀: ${[...new Set(unsupported.map(s => EFFECTS[s.type]?.name || s.type))].join(', ')}` : '') +
-        (missingIr ? ' · IR 파일을 불러오지 못해 IR만 통과' : ''), !!(unsupported.length || missingIr));
+        (missingIr ? ' · IR 파일을 불러오지 못해 IR만 통과' : ''), !!(nativeLegacy || unsupported.length || missingIr));
     }
   } catch (error) {
     nativeConnected = false;
@@ -186,6 +187,7 @@ async function connectNative({ quiet = false } = {}) {
     const response = await fetch(`${NATIVE_URL}/status`, { cache: 'no-store', targetAddressSpace: 'loopback' });
     if (!response.ok) throw new Error(`응답 ${response.status}`);
     const capabilities = await response.json();
+    nativeLegacy = !Array.isArray(capabilities.supported);
     nativeTypes = new Set(Array.isArray(capabilities.supported) ? capabilities.supported : ['janray', 'ocd']);
     nativeRate = Number.isFinite(capabilities.rate) ? capabilities.rate : 48000;
     disconnectLive(); stopFile();
