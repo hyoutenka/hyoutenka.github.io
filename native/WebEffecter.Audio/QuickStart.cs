@@ -33,8 +33,7 @@ internal static class QuickStart
             var index = Array.IndexOf(args, key);
             return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
         }
-        var driver = Get("--driver") ?? drivers.FirstOrDefault(name =>
-            name.Contains("Focusrite", StringComparison.OrdinalIgnoreCase)) ?? drivers[0];
+        var driver = SelectDriver(drivers, Get("--driver"));
         if (!drivers.Contains(driver, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException("The selected ASIO driver is not installed.");
 
@@ -136,5 +135,26 @@ internal static class QuickStart
         run?.DeleteValue(StartupName, throwOnMissingValue: false);
         Console.WriteLine("자동 시작 등록을 해제했습니다. 실행 중인 엔진은 Windows 로그아웃 후 종료됩니다.");
         return 0;
+    }
+
+    internal static string SelectDriver(string[] drivers, string? requested)
+    {
+        if (drivers.Length == 0) throw new ArgumentException("No ASIO driver is installed.");
+        if (!string.IsNullOrWhiteSpace(requested)) return requested;
+        return drivers.FirstOrDefault(name => name.Equals("Focusrite USB ASIO", StringComparison.OrdinalIgnoreCase))
+            ?? drivers.FirstOrDefault(name =>
+                name.Contains("Focusrite", StringComparison.OrdinalIgnoreCase) &&
+                name.Contains("USB", StringComparison.OrdinalIgnoreCase))
+            ?? drivers.FirstOrDefault(name =>
+                name.Contains("Focusrite", StringComparison.OrdinalIgnoreCase) &&
+                !name.Contains("Thunderbolt", StringComparison.OrdinalIgnoreCase))
+            ?? drivers[0];
+    }
+
+    internal static void VerifyDriverSelection()
+    {
+        var installed = new[] { "Focusrite Thunderbolt ASIO", "ASIO4ALL v2", "Focusrite USB ASIO" };
+        if (SelectDriver(installed, null) != "Focusrite USB ASIO")
+            throw new Exception("ASIO driver selection regression: Thunderbolt was selected before Scarlett USB.");
     }
 }
