@@ -127,7 +127,7 @@ function scheduleNativeSync() {
 }
 function nativeImpulse() {
   if (!slots.some(slot => slot.type === 'ir' && !slot.bypass)) return undefined;
-  const length = 2048, samples = new Float32Array(length);
+  const length = 1024, samples = new Float32Array(length);
   if (irBuffer) {
     const channel = irBuffer.getChannelData(0), step = irBuffer.sampleRate / nativeRate;
     for (let i = 0; i < length && i * step < channel.length; i++) {
