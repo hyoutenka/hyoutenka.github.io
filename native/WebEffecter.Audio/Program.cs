@@ -15,7 +15,7 @@ internal static class Program
   {
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
-    Console.WriteLine("WebEffecter.Audio · STA build 2");
+    Console.WriteLine("WebEffecter.Audio · STA build 3");
     var options = Arguments.Parse(args);
     if (options.List)
     {
@@ -48,7 +48,13 @@ internal static class Program
 
     // The callback is intentionally allocation-free. A separate physical cable
     // test is required before a round-trip latency claim can be made.
-    var processor = new MonitorProcessor(options.Measure, options.Tone, options.Gain, options.Rate);
+    var effects = options.Chain.Select(name => name switch
+    {
+        "janray" => (IAudioEffect)new JanRayEffect(options.Rate),
+        "ocd" => new OcdEffect(options.Rate),
+        _ => throw new ArgumentException($"Unsupported effect: {name}")
+    }).ToArray();
+    var processor = new MonitorProcessor(options.Measure, options.Tone, options.Gain, options.Rate, effects);
     device.InitDuplex(new AsioDuplexOptions
     {
         InputChannels = [options.Input],
@@ -70,7 +76,7 @@ internal static class Program
     else if (options.Tone)
         Console.WriteLine("Output test: 440 Hz at -30 dBFS on both selected outputs. Turn headphones down first; press Enter to stop.");
     else
-        Console.WriteLine("Live dry monitor: selected input -> both selected outputs. Press Enter to stop.");
+        Console.WriteLine($"Live monitor: selected input -> {(effects.Length == 0 ? "dry" : string.Join(" -> ", options.Chain))} -> both selected outputs. Press Enter to stop.");
 
     device.ResyncOccurred += (_, _) => Interlocked.Increment(ref processor.Resyncs);
     device.Start();
@@ -100,7 +106,7 @@ internal static class Program
   }
 }
 
-internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int sampleRate)
+internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int sampleRate, IAudioEffect[] effects)
 {
     internal long Frames;
     internal long RoundTripFrames = -1;
@@ -174,7 +180,9 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
         {
             for (var i = 0; i < b.Frames; i++)
             {
-                var v = Math.Clamp(input[i] * gain, -0.9f, 0.9f);
+                var v = input[i];
+                foreach (var effect in effects) v = effect.Process(v);
+                v = Math.Clamp(v * gain, -0.9f, 0.9f);
                 left[i] = v;
                 right[i] = v;
                 outputPeak = MathF.Max(outputPeak, MathF.Abs(v));
@@ -186,13 +194,13 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
     }
 }
 
-internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain)
+internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain, string[] Chain)
 {
     internal static Arguments Parse(string[] args)
     {
         if (args.Length == 0 || args.Contains("--help"))
         {
-            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--tone | --measure | --panel]");
+            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--chain janray,ocd | --tone | --measure | --panel]");
             Console.WriteLine("ASIO channels are ZERO-BASED. On a 4i4, outputs 2/3 normally represent 3/4; verify the printed channel names.");
             Environment.Exit(0);
         }
@@ -207,10 +215,15 @@ internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone,
         var driver = Get("--driver");
         if (!args.Contains("--list") && string.IsNullOrWhiteSpace(driver)) throw new ArgumentException("Specify --driver after --list.");
         if (args.Contains("--tone") && args.Contains("--measure")) throw new ArgumentException("Choose either --tone or --measure.");
+        var chain = (Get("--chain") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (chain.Length > 8 || chain.Any(name => name is not ("janray" or "ocd")))
+            throw new ArgumentException("--chain accepts up to 8 comma-separated effects: janray,ocd.");
+        if (chain.Length != 0 && (args.Contains("--tone") || args.Contains("--measure")))
+            throw new ArgumentException("--chain cannot be combined with --tone or --measure.");
         var gain = float.TryParse(Get("--gain"), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0.5f;
         if (gain is < 0 or > 1) throw new ArgumentException("--gain must be from 0 to 1.");
         return new(args.Contains("--list"), args.Contains("--panel"), args.Contains("--measure"), args.Contains("--tone"), driver,
             Number("--input", 0), Number("--left", 0), Number("--right", 1), Number("--rate", 48000),
-            Get("--buffer") is { } raw ? int.Parse(raw, CultureInfo.InvariantCulture) : null, gain);
+            Get("--buffer") is { } raw ? int.Parse(raw, CultureInfo.InvariantCulture) : null, gain, chain);
     }
 }
