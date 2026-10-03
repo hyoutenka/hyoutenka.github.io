@@ -48,7 +48,7 @@ internal static class Program
 
     // The callback is intentionally allocation-free. A separate physical cable
     // test is required before a round-trip latency claim can be made.
-    var processor = new MonitorProcessor(options.Measure, options.Gain, options.Rate);
+    var processor = new MonitorProcessor(options.Measure, options.Tone, options.Gain, options.Rate);
     device.InitDuplex(new AsioDuplexOptions
     {
         InputChannels = [options.Input],
@@ -67,6 +67,8 @@ internal static class Program
     Console.WriteLine("Target: measured analogue loopback < 20 ms, no dropouts. Driver values alone cannot certify it.");
     if (options.Measure)
         Console.WriteLine("Loopback test: LEFT selected line output -> selected line input. Level is -30 dBFS; press Enter to stop.");
+    else if (options.Tone)
+        Console.WriteLine("Output test: 440 Hz at -30 dBFS on both selected outputs. Turn headphones down first; press Enter to stop.");
     else
         Console.WriteLine("Live dry monitor: selected input -> both selected outputs. Press Enter to stop.");
 
@@ -77,9 +79,11 @@ internal static class Program
         var frames = Interlocked.Read(ref processor.Frames);
         var resyncs = Volatile.Read(ref processor.Resyncs);
         var measured = Interlocked.Read(ref processor.RoundTripFrames);
+        var inputPeak = MonitorProcessor.FormatPeak(Interlocked.Exchange(ref processor.InputPeakBits, 0));
+        var outputPeak = MonitorProcessor.FormatPeak(Interlocked.Exchange(ref processor.OutputPeakBits, 0));
         Console.WriteLine(options.Measure
-            ? measured >= 0 ? $"Physical loopback: {1000.0 * measured / options.Rate:F2} ms · resyncs {resyncs}" : $"Waiting for return pulse · resyncs {resyncs}"
-            : $"Processed {frames / options.Rate}s · driver resyncs {resyncs}");
+            ? measured >= 0 ? $"Physical loopback: {1000.0 * measured / options.Rate:F2} ms · resyncs {resyncs}" : $"Waiting for return pulse · IN {inputPeak} · OUT {outputPeak} · resyncs {resyncs}"
+            : $"Processed {frames / options.Rate}s · IN {inputPeak} · OUT {outputPeak} · driver resyncs {resyncs}");
     }, null, 1000, 1000);
     Console.ReadLine();
     timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -96,12 +100,31 @@ internal static class Program
   }
 }
 
-internal sealed class MonitorProcessor(bool measure, float gain, int sampleRate)
+internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int sampleRate)
 {
     internal long Frames;
     internal long RoundTripFrames = -1;
     internal int Resyncs;
+    internal int InputPeakBits;
+    internal int OutputPeakBits;
     private long pulseFrame = -1;
+
+    internal static string FormatPeak(int bits)
+    {
+        var peak = BitConverter.Int32BitsToSingle(bits);
+        return peak > 0 ? $"{20 * Math.Log10(peak):F0} dBFS" : "-inf dBFS";
+    }
+
+    private static void RaisePeak(ref int target, float peak)
+    {
+        var bits = BitConverter.SingleToInt32Bits(MathF.Min(1, peak));
+        int old;
+        do
+        {
+            old = Volatile.Read(ref target);
+            if (bits <= old) return;
+        } while (Interlocked.CompareExchange(ref target, bits, old) != old);
+    }
 
     internal void Process(in AsioProcessBuffers b)
     {
@@ -109,6 +132,9 @@ internal sealed class MonitorProcessor(bool measure, float gain, int sampleRate)
         var input = b.GetInput(0);
         var left = b.GetOutput(0);
         var right = b.GetOutput(1);
+        float inputPeak = 0, outputPeak = 0;
+
+        for (var i = 0; i < b.Frames; i++) inputPeak = MathF.Max(inputPeak, MathF.Abs(input[i]));
 
         if (measure)
         {
@@ -132,6 +158,16 @@ internal sealed class MonitorProcessor(bool measure, float gain, int sampleRate)
                 if (frame == pulseStart) pulseFrame = frame;
                 left[i] = value;
                 right[i] = 0;
+                outputPeak = MathF.Max(outputPeak, MathF.Abs(value));
+            }
+        }
+        else if (tone)
+        {
+            for (var i = 0; i < b.Frames; i++)
+            {
+                var value = 0.0316f * MathF.Sin(2 * MathF.PI * 440 * ((first + i) % sampleRate) / sampleRate);
+                left[i] = right[i] = value;
+                outputPeak = MathF.Max(outputPeak, MathF.Abs(value));
             }
         }
         else
@@ -141,19 +177,22 @@ internal sealed class MonitorProcessor(bool measure, float gain, int sampleRate)
                 var v = Math.Clamp(input[i] * gain, -0.9f, 0.9f);
                 left[i] = v;
                 right[i] = v;
+                outputPeak = MathF.Max(outputPeak, MathF.Abs(v));
             }
         }
+        RaisePeak(ref InputPeakBits, inputPeak);
+        RaisePeak(ref OutputPeakBits, outputPeak);
         Interlocked.Add(ref Frames, b.Frames);
     }
 }
 
-internal sealed record Arguments(bool List, bool Panel, bool Measure, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain)
+internal sealed record Arguments(bool List, bool Panel, bool Measure, bool Tone, string? Driver, int Input, int Left, int Right, int Rate, int? Buffer, float Gain)
 {
     internal static Arguments Parse(string[] args)
     {
         if (args.Length == 0 || args.Contains("--help"))
         {
-            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 0 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--measure | --panel]");
+            Console.WriteLine("Usage: WebEffecter.Audio --list | --driver \"Focusrite USB ASIO\" [--input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5] [--tone | --measure | --panel]");
             Console.WriteLine("ASIO channels are ZERO-BASED. On a 4i4, outputs 2/3 normally represent 3/4; verify the printed channel names.");
             Environment.Exit(0);
         }
@@ -167,9 +206,10 @@ internal sealed record Arguments(bool List, bool Panel, bool Measure, string? Dr
         int Number(string key, int fallback) => int.TryParse(Get(key), out var value) ? value : fallback;
         var driver = Get("--driver");
         if (!args.Contains("--list") && string.IsNullOrWhiteSpace(driver)) throw new ArgumentException("Specify --driver after --list.");
+        if (args.Contains("--tone") && args.Contains("--measure")) throw new ArgumentException("Choose either --tone or --measure.");
         var gain = float.TryParse(Get("--gain"), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0.5f;
         if (gain is < 0 or > 1) throw new ArgumentException("--gain must be from 0 to 1.");
-        return new(args.Contains("--list"), args.Contains("--panel"), args.Contains("--measure"), driver,
+        return new(args.Contains("--list"), args.Contains("--panel"), args.Contains("--measure"), args.Contains("--tone"), driver,
             Number("--input", 0), Number("--left", 0), Number("--right", 1), Number("--rate", 48000),
             Get("--buffer") is { } raw ? int.Parse(raw, CultureInfo.InvariantCulture) : null, gain);
     }
