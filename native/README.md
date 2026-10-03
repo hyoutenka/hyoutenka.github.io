@@ -1,5 +1,13 @@
 # Windows ASIO 입출력 실험
 
+## 빠른 설치와 연습
+
+1. [Web Effecter Audio (Windows x64)](https://github.com/hyoutenka/hyoutenka.github.io/releases/download/audio-latest/WebEffecter.Audio.exe)를 다운로드해 한 번 실행합니다. Windows용 제조사 ASIO 드라이버가 먼저 설치되어 있어야 합니다.
+2. [Web Effecter](https://hyoutenka.github.io/)를 여세요. 브라우저가 로컬 네트워크 접근을 물으면 허용하세요. 이후 PC 로그인 때 오디오 엔진이 숨겨진 상태로 시작되고 사이트 방문 시 보드가 자동 연결됩니다. PowerShell 명령은 필요하지 않습니다.
+3. Scarlett 4i4에서는 기타 입력 2, Playback 3–4, 48 kHz, 64샘플이 기본입니다. 다른 ASIO 장치에서는 첫 입력과 첫 두 출력을 사용합니다. 장치 설정이 다른 경우 아래의 수동 실행 옵션으로 확인하세요.
+
+설치 프로그램은 현재 사용자 계정의 시작 프로그램에 등록됩니다. 브라우저를 닫고 6초가 지나면 기타 출력이 자동으로 음소거됩니다. 출력 장치는 점유된 상태로 남으므로 다른 ASIO 앱을 열 때에는 작업 관리자에서 오디오 엔진을 종료하거나 로그아웃해야 할 수 있습니다. 다운로드 실행 파일은 코드 서명되지 않은 개발 빌드입니다. 자동 시작 해제는 다운로드한 파일에 `--uninstall` 옵션을 전달해 실행할 수 있습니다.
+
 실제 기타 입력에서 출력까지 **20ms 미만**을 목표로 하는 로컬 오디오 경로입니다. GitHub Pages의 8개 노드 편집기에서 Jan Ray와 OCD 설정을 로컬 엔진으로 보낼 수 있습니다. 원음 모니터링과 첫 번째 네이티브 이펙트 체인은 같은 ASIO 콜백에서 처리합니다. 브라우저의 `outputLatency` 숫자는 이 프로그램의 지연을 나타내지 않습니다.
 
 Windows용 .NET 9과 [NAudio 3.1.0](https://www.nuget.org/packages/NAudio/3.1.0)을 사용합니다. NAudio는 MIT 라이선스입니다. 제조사 ASIO 드라이버를 설치한 오디오 인터페이스에서 사용하세요.
