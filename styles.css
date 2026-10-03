@@ -32,6 +32,7 @@
 @media(max-width:540px){.brand strong,.brand small{display:none}.topbar{gap:8px}.topbar-left{gap:8px}.top-actions{gap:0}#power{font-size:13px}.practice{margin-top:22px}}
 @media(prefers-reduced-motion:reduce){.io-backdrop,.io-drawer{transition:none}}
 .native-bridge{border:1px solid #4b7779;border-radius:12px;background:#18282a;padding:14px;margin:8px 0 20px}.native-bridge-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.native-bridge-head strong{font-size:14px}.native-bridge .help{font-size:12px;margin:9px 0 0}.native-bridge .help.error{color:#f3beaa}.native-bridge button{font-size:12px;white-space:normal}
+.asio-active .io-card .browser-routing{display:none!important}.asio-route{margin:14px 0;padding:13px;border:1px solid #5a8a79;border-radius:9px;background:#1e3632}.asio-route strong{color:#a7e7c1;font-size:13px}.asio-route p{font-size:12px;line-height:1.5;margin:7px 0 0;color:#cfdfd6}.asio-route[hidden]{display:none!important}
 .practice-heading h1{font-size:clamp(27px,3vw,36px);letter-spacing:-.045em;line-height:1.1;margin:0 0 8px}
 
 /* Chain position editing */
