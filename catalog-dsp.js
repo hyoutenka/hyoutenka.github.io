@@ -102,13 +102,17 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     const v = DRIVE_VOICES[voice], hp = filter('highpass', v.hp), mid = filter('peaking', 900, .8);
     mid.gain.value = v.mid * 4;
     const pre = gain(1), shaper = add(ctx.createWaveShaper()), postFilter = filter('lowpass', v.lp);
+    const id = slot.type, ratFamily = ['rat','rat2','turbo_rat'].includes(id);
+    const bass = filter('lowshelf', 170), treble = filter('highshelf', 3200);
+    bass.gain.value = id === 'boss_sd1' ? 1.7 : id === 'boss_od1' ? -.5 : id === 'odr1' ? 2.5 : 0;
+    treble.gain.value = id === 'tsmini' ? -.5 : id === 'opamp_muff' ? 1.3 : 0;
     const post = gain(1), clean = v.clip === 'blend' ? gain(0) : null;
     const shape = new Float32Array(4096);
     for (let i = 0; i < shape.length; i++) {
       const x = i * 2 / (shape.length - 1) - 1;
       let y;
       switch (v.clip) {
-        case 'hard': y = Math.max(-.78, Math.min(.78, x * 3)) / .78; break;
+        case 'hard': y = Math.max(-.78, Math.min(.78, x * (id === 'turbo_rat' ? 1.5 : 3))) / .78; break;
         case 'muff': y = Math.tanh(x * 7); break;
         case 'fuzz': y = Math.tanh(x * 9 + .13) - .13; break;
         case 'gated': y = Math.abs(x) < .12 ? 0 : Math.tanh(x * 10); break;
@@ -125,14 +129,20 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
       second.curve = new Float32Array(shape); second.oversample = '4x';
       shaper.connect(interstage).connect(second).connect(postFilter);
     } else shaper.connect(postFilter);
-    postFilter.connect(post).connect(output);
+    postFilter.connect(bass).connect(treble).connect(post).connect(output);
     if (clean) input.connect(clean).connect(output);
     const update = () => {
       const amount = p.gain / 100;
-      parameter(pre.gain, v.gain * (.9 + amount * 12));
-      parameter(postFilter.frequency, Math.min(12000, Math.max(900, v.lp * (.32 + p.tone / 100))));
+      const driveScale = id === 'boss_od1' ? .75 : id === 'boss_sd1' ? .88
+        : id === 'rat2' ? 1.04 : id === 'turbo_rat' ? .78 : 1;
+      parameter(pre.gain, v.gain * (.9 + amount * 12) * driveScale);
+      // RAT's Filter is reversed: clockwise means darker. OD-1 has no Tone knob.
+      const tone = p.tone ?? 50;
+      parameter(postFilter.frequency, ratFamily
+        ? 9500 - tone * 78
+        : Math.min(12000, Math.max(900, v.lp * (.32 + tone / 100))));
       parameter(post.gain, v.level * (.2 + p.level / 100 * .9) / (1 + amount * 1.1));
-      if (clean) parameter(clean.gain, .33 * (1 - amount * .5));
+      if (clean) parameter(clean.gain, .48 * (1 - amount * .74));
     };
     update(); return { update };
   }
@@ -141,12 +151,13 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     const {dry,wet} = wetDry(makeUp, p.blend / 100);
     input.connect(comp).connect(makeUp);
     const update = () => {
-      parameter(comp.threshold, -12 - p.sustain * .36);
-      parameter(comp.ratio, voice === 'ota' ? 4.5 : 3.5);
-      parameter(comp.attack, p.attack / 1000);
-      parameter(comp.release, .11 + p.sustain * .002);
-      parameter(comp.knee, 12);
-      parameter(makeUp.gain, (.65 + p.level / 100 * 1.6));
+      const ross = slot.type === 'ross_comp', keeley = slot.type === 'keeley_comp';
+      parameter(comp.threshold, -(ross ? 15 : keeley ? 18 : 12) - p.sustain * (keeley ? .3 : .36));
+      parameter(comp.ratio, keeley ? 4 : ross ? 5 : 4.5);
+      parameter(comp.attack, Math.max(.001, p.attack / 1000 * (ross ? 1.4 : 1)));
+      parameter(comp.release, (ross ? .22 : keeley ? .16 : .11) + p.sustain * .002);
+      parameter(comp.knee, keeley ? 16 : 10);
+      parameter(makeUp.gain, (.65 + p.level / 100 * (ross ? 1.45 : 1.6)));
       parameter(dry.gain, 1 - p.blend / 100);
       parameter(wet.gain, p.blend / 100);
     }; update(); return {update};
@@ -155,7 +166,7 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     const lfo = add(ctx.createOscillator()), depth = gain(0);
     lfo.type = voice === 'vibe' ? 'triangle' : 'sine';
     lfo.connect(depth); lfo.start(); oscillators.push(lfo);
-    let wetSource, feedbackNode;
+    let wetSource, feedbackNode, dimensionSecond = null;
     if (['phaser','phaser2','vibe'].includes(voice)) {
       const stages = voice === 'vibe' ? 4 : voice === 'phaser2' ? 6 : 4;
       let cursor = input;
@@ -168,15 +179,25 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
       wetSource = cursor;
     } else {
       const delay = add(ctx.createDelay(.08));
-      delay.delayTime.value = voice === 'flanger' ? .005 : voice === 'dimension' ? .019 : .025;
+      delay.delayTime.value = voice === 'flanger' ? .005 : voice === 'dimension' ? .019 : voice === 'chorus2' ? .033 : .022;
       depth.connect(delay.delayTime);
       input.connect(delay); wetSource = delay;
+      if (voice === 'dimension') {
+        // Two opposed chorus taps create a wider, less obvious sweep.
+        dimensionSecond = add(ctx.createDelay(.08)); dimensionSecond.delayTime.value = .024;
+        const invert = gain(-1); depth.connect(invert).connect(dimensionSecond.delayTime);
+        input.connect(dimensionSecond);
+        const sum = gain(.5); delay.connect(sum); dimensionSecond.connect(sum); wetSource = sum;
+      }
       if (voice === 'flanger') { feedbackNode = gain(.2); delay.connect(feedbackNode).connect(delay); }
     }
     const {dry,wet} = wetDry(wetSource, p.mix / 100);
     const update = () => {
-      parameter(lfo.frequency, voice === 'vibe' ? .1 + p.rate * .065 : .08 + p.rate * .047);
-      parameter(depth.gain, ['phaser','phaser2','vibe'].includes(voice) ? p.depth / 100 : (voice === 'flanger' ? .003 : .008) * p.depth / 100);
+      parameter(lfo.frequency, voice === 'vibe' ? .08 + p.rate * .058
+        : voice === 'dimension' ? .04 + p.rate * .013
+        : voice === 'chorus2' ? .07 + p.rate * .027 : .08 + p.rate * .047);
+      parameter(depth.gain, ['phaser','phaser2','vibe'].includes(voice) ? p.depth / 100
+        : (voice === 'flanger' ? .003 : voice === 'chorus2' ? .013 : voice === 'dimension' ? .004 : .007) * p.depth / 100);
       parameter(dry.gain, 1 - p.mix / 100); parameter(wet.gain, p.mix / 100);
       if (feedbackNode) parameter(feedbackNode.gain, p.feedback / 100 * .7);
     }; update(); return {update};
@@ -186,7 +207,11 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     lfo.type = voice === 'triangle' ? 'triangle' : 'sine';
     lfo.connect(depth).connect(amp.gain); lfo.start(); oscillators.push(lfo);
     input.connect(amp).connect(output);
-    const update = () => { parameter(lfo.frequency, .3 + p.rate * .11); parameter(amp.gain, 1 - p.depth / 200); parameter(depth.gain, p.depth / 200); };
+    const update = () => {
+      lfo.type = p.shape > 75 ? 'square' : p.shape < 28 ? 'triangle' : 'sine';
+      parameter(lfo.frequency, .3 + p.rate * .11);
+      parameter(amp.gain, 1 - p.depth / 200); parameter(depth.gain, p.depth / 200);
+    };
     update(); return {update};
   }
   if (model.engine === 'filter') {
@@ -207,13 +232,26 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
   if (model.engine === 'pitch') {
     const pitch = add(new AudioWorkletNode(ctx, 'catalog-pitch')), wet = gain(p.mix / 100), dry = gain(1 - p.mix / 100);
     input.connect(dry).connect(output); input.connect(pitch).connect(wet).connect(output);
-    const update = () => { pitch.port.postMessage({semitones:p.semitones,window:p.window}); parameter(wet.gain,p.mix/100); parameter(dry.gain,1-p.mix/100); };
+    const second = slot.type === 'pitchfork' || slot.type === 'ps6' ? add(new AudioWorkletNode(ctx, 'catalog-pitch')) : null;
+    const harmony = second ? gain(0) : null;
+    if (second) input.connect(second).connect(harmony).connect(output);
+    const update = () => {
+      const direction = slot.type === 'pitchfork' ? p.mode || 0 : 0;
+      pitch.port.postMessage({semitones:slot.type === 'pitchfork' ? (direction === 1 ? -1 : 1) * Math.abs(p.semitones) : p.semitones,window:p.window});
+      if (second) second.port.postMessage({semitones:slot.type === 'pitchfork' ? -Math.abs(p.semitones) : p.harmony,window:p.window});
+      parameter(wet.gain,p.mix/100 * (direction === 2 ? .68 : 1));
+      if (second) parameter(harmony.gain,slot.type === 'ps6' || direction === 2 ? p.mix/100 * .5 : 0);
+      parameter(dry.gain,1-p.mix/100);
+    };
     update(); return {update};
   }
   if (model.engine === 'delay') {
     const delay = add(ctx.createDelay(1.4)), tone = filter('lowpass', 5500), feedback = gain(.35), wetTone = filter('lowpass', 8000);
     delay.connect(tone).connect(feedback).connect(delay);
     delay.connect(wetTone);
+    const dual = voice === 'digital' ? add(ctx.createDelay(1.4)) : null;
+    const dualFeed = dual ? gain(0) : null, dualLevel = dual ? gain(.5) : null;
+    if (dual) tone.connect(dualFeed).connect(dual).connect(dualLevel).connect(wetTone);
     const {dry,wet} = wetDry(wetTone, p.mix / 100);
     const lfo = ['tape','digital'].includes(voice) ? add(ctx.createOscillator()) : null;
     const wow = lfo ? gain(0) : null;
@@ -221,9 +259,12 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
     const update = () => {
       const mode = p.mode || 0, color = voice === 'digital' ? ['digital','analog','tape','dual','mod','ambient'][mode] || 'digital' : voice;
       parameter(delay.delayTime, p.time / 1000);
-      parameter(feedback.gain, Math.min(.85,p.feedback / 100));
-      parameter(tone.frequency, Math.max(700, (color === 'analog' ? 2400 : color === 'tape' ? 3500 : 9500) * (.35 + p.tone / 100)));
-      parameter(wetTone.frequency, color === 'analog' ? 3600 : 11500);
+      if (dual) { parameter(dual.delayTime, Math.max(.05, p.time * .67 / 1000)); parameter(dualFeed.gain,mode === 3 ? .7 : 0); }
+      parameter(feedback.gain, Math.min(.85,p.feedback / 100 * (slot.type === 'dm2' ? .9 : 1)));
+      const cutoff = color === 'analog' ? (slot.type === 'dm2' ? 2300 : slot.type === 'pt2399' ? 3300 : slot.type === 'deepblue' ? 4800 : 3000)
+        : color === 'tape' ? 3500 : 9500;
+      parameter(tone.frequency, Math.max(700, cutoff * (.35 + p.tone / 100)));
+      parameter(wetTone.frequency, color === 'analog' ? cutoff * 1.3 : 11500);
       if (wow) parameter(wow.gain, color === 'tape' ? .0023 : color === 'mod' ? .004 : 0);
       parameter(dry.gain, 1-p.mix/100); parameter(wet.gain,p.mix/100);
     }; update(); return {update};
@@ -251,14 +292,22 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
       drySource.connect(forward).connect(pre);
       if (pitch) drySource.connect(pitch).connect(shimmer).connect(pre);
     }
-    const flerb = voice === 'spring' ? filter('allpass',850) : null;
+    const flerb = voice === 'spring' ? add(ctx.createDelay(.04)) : null;
     const flerbLfo = flerb ? add(ctx.createOscillator()) : null, flerbDepth = flerb ? gain(0) : null;
-    if (flerb) { convolver.connect(flerb).connect(tone); flerbLfo.connect(flerbDepth).connect(flerb.frequency); flerbLfo.frequency.value=.42; flerbLfo.start(); oscillators.push(flerbLfo); }
+    const flerbDirect = flerb ? gain(1) : null, flerbEffect = flerb ? gain(0) : null;
+    if (flerb) {
+      flerb.delayTime.value = .008;
+      convolver.connect(flerbDirect).connect(tone);
+      convolver.connect(flerb).connect(flerbEffect).connect(tone);
+      flerbLfo.connect(flerbDepth).connect(flerb.delayTime);
+      flerbLfo.frequency.value=.42; flerbLfo.start(); oscillators.push(flerbLfo);
+    }
     else convolver.connect(tone);
     pre.connect(convolver);
     const dry=gain(1-p.mix/100), wet=gain(p.mix/100);
     drySource.connect(dry).connect(output); tone.connect(wet).connect(output);
-    if (delay) { const echo = gain(.18); delay.connect(echo).connect(output); }
+    const echo = delay ? gain(0) : null;
+    if (echo) delay.connect(echo).connect(output);
     let previous = '';
     const update = () => {
       const mode = p.mode || 0;
@@ -279,12 +328,17 @@ export function makeCatalogUnit(ctx, slot, input, output, nodes, oscillators, im
       if (delay) {
         parameter(delay.delayTime, mode === 1 ? .25 : .38); parameter(feedback.gain,.42);
         parameter(forward.gain,mode===1 ? 0 : 1); parameter(reverseLevel.gain,mode===1 ? 1 : 0);
+        parameter(echo.gain, p.mix / 100 * .24);
       } else parameter(forward.gain,kind==='shimmer' ? .25 : 1);
       if (pitch) {
         pitch.port.postMessage({semitones:12,window:55});
         parameter(shimmer.gain,kind==='shimmer' ? .7 : 0);
       }
-      if (flerb) parameter(flerbDepth.gain,kind==='flerb' ? 480 : 0);
+      if (flerb) {
+        parameter(flerbDepth.gain,kind==='flerb' ? .0035 : 0);
+        parameter(flerbDirect.gain,kind==='flerb' ? .4 : 1);
+        parameter(flerbEffect.gain,kind==='flerb' ? .65 : 0);
+      }
       if (trem) {
         parameter(trem.gain,1-p.depth/200); parameter(tremDepth.gain,p.depth/200);
         parameter(tremLfo.frequency,.2+p.rate*.09);

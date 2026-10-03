@@ -110,14 +110,31 @@ const CATALOG_MODELS = Object.fromEntries(MODEL_ROWS.map(([id,name,group,engine,
     description: `${name} · ${reference}를 참고한 독립 DSP 근사 모델입니다. 실제 페달의 내부 알고리즘이나 부품 전체를 복제한 것은 아닙니다.`,
     params: Object.fromEntries(Object.entries(sliders[engine] || sliders.reverb).map(([key, value]) => [key, [...value]])) }
 ]));
+// The original OD-1 has Level and Overdrive only; SD-1 added a Tone control.
+delete CATALOG_MODELS.boss_od1.params.tone;
+CATALOG_MODELS.boss_od1.description = 'OD-1의 Level·Overdrive 2노브와 비대칭 클리핑을 참고한 근사 모델입니다. 톤 조절은 페달 자체에 없으며 고정 보이싱입니다.';
+CATALOG_MODELS.boss_sd1.description = 'OD-1에서 발전한 비대칭 클리핑에 Tone 조절과 약간 더 두터운 저역을 더한 SD-1 근사 모델입니다.';
+for (const id of ['rat','rat2','turbo_rat']) CATALOG_MODELS[id].params.tone[0] = 'Filter (dark →)';
 CATALOG_MODELS.a3_angel.description = 'A3 Stompbox Angel의 단독 시연과 JCM800에 영감을 받은 선명한 드라이브 설명을 참고했습니다. 피킹 강약을 남기도록 두 단계의 증폭량을 낮추고 Bass·Treble을 따로 조절합니다. 실제 회로나 실측 캡처는 아닙니다.';
 CATALOG_MODELS.a3_awesome.description = 'A3 Stompbox Awesome의 단독 데모에서 설명한 Klon 성향의 낮은 게인 부스트와 밝고 정돈된 고음역을 참고했습니다. 클린·드라이브 병렬 경로와 게인에 따라 달라지는 저역 차단을 사용합니다. 실제 회로나 실측 캡처는 아닙니다.';
 CATALOG_MODELS.a3_groovim.description = '임선호 시그니처 A3 Groovim의 RAT 비교 시연과 Gain·Volume·Filter 조작을 참고했습니다. 단독 연주에서 어택이 너무 빨리 눌리지 않도록 하드 클리핑 진입을 늦추고 역방향 Filter와 저중역을 조절했습니다. Groovim 808과는 다른 모델이며 실측 캡처는 아닙니다.';
 for (const [id, label] of [['a3_angel', 'Angel'], ['a3_awesome', 'Awesome'], ['a3_groovim', 'Groovim']]) CATALOG_MODELS[id].shortName = label;
 for (const id of ['dd200','dd500']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, 5, 0, ''];
-  CATALOG_MODELS[id].description += ' 공개 모드 중 Digital, Analog, Tape, Dual, Mod, Ambient의 여섯 가지를 단순화해 제공합니다.';
+  CATALOG_MODELS[id].description += ' 공개 모드 중 Standard, Analog, Tape, Dual, Mod, Ambient의 여섯 가지를 단순화해 제공합니다. Mod와 Ambient는 실기기의 독립 모드명 대신 변조·잔향 계열을 묶은 표현입니다.';
 }
+CATALOG_MODELS.pitchfork.params.mode = ['Direction', 0, 2, 0, ''];
+CATALOG_MODELS.pitchfork.description = 'Pitch Fork의 Up·Down·Dual 전환을 두 독립 피치 경로로 근사합니다. Dual의 반대 방향 두 음정만 제공하며 실제 폴리포닉 추적·프리셋은 재현하지 않습니다.';
+CATALOG_MODELS.ps6.params.harmony = ['Harmony voice', 0, 12, 7, ' st'];
+CATALOG_MODELS.ps6.description = 'PS-6의 원음+두 화음 성격을 고정 음정의 병렬 피치 경로로 근사합니다. 키를 따라 음정을 바꾸는 지능형 하모니는 구현되지 않았습니다.';
+CATALOG_MODELS.whammy.description = 'Whammy의 연속 피치 변화를 Shift 노브와 원음 혼합으로 근사합니다. 발 페달·MIDI 및 원래의 폴리포닉 알고리즘은 포함되지 않습니다.';
+CATALOG_MODELS.rat.description = '초기 RAT의 하드 클리핑과 시계 방향으로 돌릴수록 어두워지는 Filter를 참고한 근사 모델입니다.';
+CATALOG_MODELS.rat2.description = 'RAT2의 하드 클리핑·역방향 Filter를 참고하며 초기 RAT과 증폭량을 소폭 다르게 둔 근사 모델입니다. 개체별 차이는 재현하지 않습니다.';
+CATALOG_MODELS.turbo_rat.description = 'Turbo RAT의 LED 클리핑에 따른 높은 출력과 덜 압축된 피킹을 참고한 근사 모델입니다. LED의 전압 특성을 회로별로 실측한 것은 아닙니다.';
+CATALOG_MODELS.ross_comp.description = 'Ross 계열의 OTA 압축과 상대적으로 느린 릴리스·부드러운 어택을 참고한 근사 모델입니다.';
+CATALOG_MODELS.keeley_comp.description = 'Keeley Compressor Plus의 병렬 원음 Blend와 컴프레서 경로를 근사합니다. Single Coil/Humbucker 스위치는 구현되지 않았습니다.';
+CATALOG_MODELS.dc2.description = 'Dimension C의 은은한 변조 감각을 두 개의 반대 방향 지연 탭으로 근사합니다. 원형의 프리셋 버튼 및 스테레오 회로는 재현하지 않습니다.';
+CATALOG_MODELS.holy_grail.description = 'Holy Grail Nano의 Spring·Hall·Flerb를 근사합니다. Flerb에는 리버브 뒤에 짧은 변조 지연을 연결했습니다.';
 for (const id of ['holy_grail','hall_of_fame','bluesky','flux_echo','flint']) {
   CATALOG_MODELS[id].params.mode = ['Mode', 0, id === 'flux_echo' ? 2 : id === 'holy_grail' ? 2 : 3, 0, ''];
 }

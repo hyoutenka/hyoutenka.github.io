@@ -1,5 +1,5 @@
-import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=a3-solo-1';
-import { makeCatalogUnit } from './catalog-dsp.js?v=a3-solo-1';
+import { CATALOG_MODELS, CATALOG_GROUPS, PLANNED_MODELS } from './catalog-models.js?v=catalog-audit-1';
+import { makeCatalogUnit } from './catalog-dsp.js?v=catalog-audit-1';
 const $ = (id) => document.getElementById(id);
 const NAM_MODULE_URL = 'https://cdn.jsdelivr.net/npm/neural-amp-modeler-wasm@2.0.1/dist/engine/index.js';
 const NAM_SOURCE = 'https://github.com/tone-3000/neural-amp-modeler-wasm';
@@ -314,8 +314,9 @@ function renderEditor() {
     const value = slot.values[key] ?? initial;
     if (key === 'mode' && CATALOG_MODELS[slot.type]) {
       const modes = {
-        dd200: ['Digital','Analog','Tape','Dual','Mod','Ambient'],
-        dd500: ['Digital','Analog','Tape','Dual','Mod','Ambient'],
+        dd200: ['Standard','Analog','Tape','Dual','Mod*','Ambient*'],
+        dd500: ['Standard','Analog','Tape','Dual','Mod*','Ambient*'],
+        pitchfork: ['Up','Down','Dual'],
         holy_grail: ['Spring','Hall','Flerb'],
         hall_of_fame: ['Hall','Room','Plate','Shimmer'],
         bluesky: ['Plate','Room','Spring','Shimmer'],
