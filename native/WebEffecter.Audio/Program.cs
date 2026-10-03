@@ -4,15 +4,23 @@ using NAudio.Wave;
 
 // This prototype keeps audio entirely inside one ASIO duplex callback. It does
 // not route audio through a browser, a socket, a timer or a managed queue.
-try
+internal static class Program
 {
+  // ASIO COM activation and the device lifetime stay on this same STA thread.
+  [STAThread]
+  private static int Main(string[] args)
+  {
+  try
+  {
+    if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+        throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
     var options = Arguments.Parse(args);
     if (options.List)
     {
         var names = AsioDevice.GetDriverNames();
         if (names.Length == 0) Console.WriteLine("No ASIO driver found. Install the manufacturer's audio driver.");
         foreach (var name in names) Console.WriteLine(name);
-        return;
+        return 0;
     }
 
     using var device = AsioDevice.Open(options.Driver!);
@@ -27,7 +35,7 @@ try
     if (options.Panel)
     {
         device.ShowControlPanel();
-        return;
+        return 0;
     }
 
     if (options.Input < 0 || options.Input >= capabilities.NbInputChannels ||
@@ -62,33 +70,26 @@ try
 
     device.ResyncOccurred += (_, _) => Interlocked.Increment(ref processor.Resyncs);
     device.Start();
-    using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-    using var cancel = new CancellationTokenSource();
-    var log = Task.Run(async () =>
+    using var timer = new Timer(_ =>
     {
-        try
-        {
-            while (await timer.WaitForNextTickAsync(cancel.Token))
-            {
-                var frames = Interlocked.Read(ref processor.Frames);
-                var resyncs = Volatile.Read(ref processor.Resyncs);
-                var measured = Interlocked.Read(ref processor.RoundTripFrames);
-                Console.WriteLine(options.Measure
-                    ? measured >= 0 ? $"Physical loopback: {1000.0 * measured / options.Rate:F2} ms · resyncs {resyncs}" : $"Waiting for return pulse · resyncs {resyncs}"
-                    : $"Processed {frames / options.Rate}s · driver resyncs {resyncs}");
-            }
-        }
-        catch (OperationCanceledException) { }
-    });
+        var frames = Interlocked.Read(ref processor.Frames);
+        var resyncs = Volatile.Read(ref processor.Resyncs);
+        var measured = Interlocked.Read(ref processor.RoundTripFrames);
+        Console.WriteLine(options.Measure
+            ? measured >= 0 ? $"Physical loopback: {1000.0 * measured / options.Rate:F2} ms · resyncs {resyncs}" : $"Waiting for return pulse · resyncs {resyncs}"
+            : $"Processed {frames / options.Rate}s · driver resyncs {resyncs}");
+    }, null, 1000, 1000);
     Console.ReadLine();
-    cancel.Cancel();
-    await log;
+    timer.Change(Timeout.Infinite, Timeout.Infinite);
     device.Stop();
-}
-catch (Exception error)
-{
+    return 0;
+  }
+  catch (Exception error)
+  {
     Console.Error.WriteLine(error.Message);
-    Environment.ExitCode = 1;
+    return 1;
+  }
+  }
 }
 
 internal sealed class MonitorProcessor(bool measure, float gain, int sampleRate)

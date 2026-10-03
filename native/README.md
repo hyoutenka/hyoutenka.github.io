@@ -15,10 +15,10 @@ GitHub Actions의 **Windows ASIO audio prototype** 빌드 아티팩트에서도 
 
 1. `--list`에서 실제 ASIO 드라이버 이름을 확인하세요. 예시 문자열을 그대로 쓰지 말고 출력된 이름을 `--driver`에 넣으세요.
 2. 처음에는 헤드폰 볼륨을 낮추고 Focusrite Control의 **Headphones 3-4**에서 해당 소프트웨어 재생 3-4를 듣도록 라우팅하세요. 하드웨어 기타 입력의 다이렉트 모니터를 같은 헤드폰 믹스에 더하면 원음이 중복되어 들립니다.
-3. 출력 채널 번호는 **0부터 시작**합니다. 아래의 `--left 2 --right 3`은 ASIO 출력 3/4를 뜻하며, 실행 시 표시되는 드라이버 채널 이름을 확인해야 합니다. 기타가 첫 번째 입력에 연결되었다면 입력은 `0`입니다.
+3. 입출력 채널 번호는 **0부터 시작**합니다. 아래의 `--left 2 --right 3`은 ASIO 출력 3/4를 뜻하며, 실행 시 표시되는 드라이버 채널 이름을 확인해야 합니다. 기타가 Scarlett의 **입력 2번**에 꽂혀 있다면 `--input 1`입니다.
 
 ```powershell
-native/dist/WebEffecter.Audio.exe --driver "드라이버 이름" --input 0 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5
+native/dist/WebEffecter.Audio.exe --driver "드라이버 이름" --input 1 --left 2 --right 3 --rate 48000 --buffer 64 --gain 0.5
 ```
 
 `--buffer 64`가 드라이버에서 거부되거나 소리가 끊기면 `128`, 그다음 `256`을 시험하세요. `--buffer`를 생략하면 드라이버의 선호 크기를 사용합니다. 종료하려면 Enter를 누릅니다.
