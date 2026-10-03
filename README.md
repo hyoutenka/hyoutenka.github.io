@@ -2,6 +2,8 @@
 
 브라우저에서 실행되는 8슬롯 기타 이펙터 실험실입니다. 정적 파일만 사용하므로 GitHub Pages에서 그대로 호스팅할 수 있습니다.
 
+**실시간 연주 지연 목표:** 기타 입력부터 출력까지 물리 루프백 20ms 미만입니다. 브라우저의 출력 지연은 OS와 장치에 따라 달라 이 목표를 GitHub Pages만으로 보장할 수 없습니다. Windows ASIO 입출력 프로토타입과 실측 방법은 [native/README.md](native/README.md)에 있습니다. 현재 프로토타입은 원음 모니터와 측정용이며 웹의 이펙터 체인에는 아직 연결되지 않았습니다.
+
 ## 실행
 
 로컬에서는 프로젝트 폴더에서 `python3 -m http.server 8000`을 실행하고 `http://localhost:8000`을 여세요. GitHub Pages에서는 이 파일들을 `hyoutenka/hyoutenka.github.io` 저장소의 게시 루트에 놓고 Pages를 활성화하면 `https://hyoutenka.github.io/`에서 실행됩니다. HTTPS 또는 localhost 환경이어야 오디오 입력과 AudioWorklet을 사용할 수 있습니다.
