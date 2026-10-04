@@ -23,7 +23,7 @@ internal static class Program
     }
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
-    Console.WriteLine("WebEffecter.Audio · STA build 7 (ASIO route status)");
+    Console.WriteLine("WebEffecter.Audio · STA build 8 (ASIO input trim)");
     if (args.Contains("--self-test"))
     {
         QuickStart.VerifyDriverSelection();
@@ -144,11 +144,14 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
     internal void SetEffects(IAudioEffect[] next) => Volatile.Write(ref activeEffects, next);
     internal int ActiveEffectCount => Volatile.Read(ref activeEffects).Length;
     private float outputLevel = 1;
+    private float inputScale = 1;
+    internal float InputScale => Volatile.Read(ref inputScale);
     private int muted;
     private long lastWebControlTick = Environment.TickCount64;
     private int webControlled;
-    internal void SetOutput(float level, bool mute)
+    internal void SetOutput(float level, bool mute, float inputTrimDb = 0)
     {
+        Volatile.Write(ref inputScale, MathF.Pow(10, inputTrimDb / 20));
         Volatile.Write(ref outputLevel, level);
         Volatile.Write(ref muted, mute ? 1 : 0);
         Interlocked.Exchange(ref lastWebControlTick, Environment.TickCount64);
@@ -235,9 +238,10 @@ internal sealed class MonitorProcessor(bool measure, bool tone, float gain, int 
             var stale = Volatile.Read(ref webControlled) != 0 &&
                 Environment.TickCount64 - Interlocked.Read(ref lastWebControlTick) > 6000;
             var outputScale = stale || Volatile.Read(ref muted) != 0 ? 0 : gain * Volatile.Read(ref outputLevel);
+            var inputGain = Volatile.Read(ref inputScale);
             for (var i = 0; i < b.Frames; i++)
             {
-                var v = input[i];
+                var v = input[i] * inputGain;
                 foreach (var effect in effects) v = effect.Process(v);
                 v = Math.Clamp(v * outputScale, -0.9f, 0.9f);
                 left[i] = v;
