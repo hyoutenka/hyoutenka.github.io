@@ -16,7 +16,8 @@ internal sealed class LoopbackControl : IDisposable
     private static readonly string Capabilities = JsonSerializer.Serialize(new
     {
         ok = true,
-        supported = NativeEffectFactory.SupportedIds
+        supported = NativeEffectFactory.SupportedIds,
+        inputTrim = true
     });
     internal int Port => port;
 
@@ -132,10 +133,11 @@ internal sealed class LoopbackControl : IDisposable
                     var impulse = ParseImpulse(document.RootElement);
                     var effects = ParseChain(document.RootElement, impulse);
                     var output = Value(document.RootElement, "level", 1, 2);
+                    var inputTrimDb = Value(document.RootElement, "inputTrimDb", 0, 30, -12);
                     var mute = document.RootElement.TryGetProperty("mute", out var muteField) && muteField.ValueKind == JsonValueKind.True;
                     processor.SetEffects(effects);
-                    processor.SetOutput((float)output, mute);
-                    Console.WriteLine($"Web chain applied: {effects.Length} effects · level {output:P0} · mute {mute}");
+                    processor.SetOutput((float)output, mute, (float)inputTrimDb);
+                    Console.WriteLine($"Web chain applied: {effects.Length} effects · input {inputTrimDb:+0;-0;0} dB · level {output:P0} · mute {mute}");
                     await Reply(stream, 200, $"{{\"ok\":true,\"count\":{effects.Length}}}", true, timeout.Token);
                 }
                 catch (Exception error) when (error is JsonException or ArgumentException or InvalidOperationException or KeyNotFoundException)
@@ -191,10 +193,10 @@ internal sealed class LoopbackControl : IDisposable
         return samples;
     }
 
-    private static double Value(JsonElement values, string name, double fallback, double max = 100)
+    private static double Value(JsonElement values, string name, double fallback, double max = 100, double min = 0)
     {
         if (values.ValueKind == JsonValueKind.Undefined || !values.TryGetProperty(name, out var field)) return fallback;
-        if (field.ValueKind != JsonValueKind.Number || !field.TryGetDouble(out var value) || !double.IsFinite(value) || value < 0 || value > max)
+        if (field.ValueKind != JsonValueKind.Number || !field.TryGetDouble(out var value) || !double.IsFinite(value) || value < min || value > max)
             throw new ArgumentException($"Invalid {name} value.");
         return value;
     }
@@ -242,10 +244,11 @@ internal sealed class LoopbackControl : IDisposable
             throw new Exception("Native effect capabilities are missing.");
         if (capabilities.RootElement.GetProperty("route").ValueKind != JsonValueKind.Null)
             throw new Exception("Self-test route should be empty without a device.");
-        var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"mute\":false}";
+        var body = "{\"slots\":[{\"type\":\"janray\",\"values\":{\"gain\":35}},{\"type\":\"ocd\",\"bypass\":true}],\"level\":0.8,\"inputTrimDb\":6,\"mute\":false}";
         using var accepted = await http.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
-        if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1) throw new Exception("Control chain update failed.");
-        var mixed = "{\"slots\":[{\"type\":\"cp10\"},{\"type\":\"rat2\"},{\"type\":\"delay\"},{\"type\":\"reverb\"},{\"type\":\"saw\"},{\"type\":\"ir\"}],\"impulse\":\"AACAPw==\"}";
+        if (!accepted.IsSuccessStatusCode || processor.ActiveEffectCount != 1 || Math.Abs(processor.InputScale - 1.995f) > .01f)
+            throw new Exception("Control chain or input trim update failed.");
+        var mixed = "{\"slots\":[{\"type\":\"cp10\"},{\"type\":\"rat2\"},{\"type\":\"delay\"},{\"type\":\"reverb\"},{\"type\":\"saw\"},{\"type\":\"ir\"}],\"impulse\":\"AACAPw==\",\"inputTrimDb\":6}";
         using var expanded = await http.PostAsync(url + "/chain", new StringContent(mixed, Encoding.UTF8, "application/json"));
         if (!expanded.IsSuccessStatusCode || processor.ActiveEffectCount != 6)
             throw new Exception("Expanded pedal chain update failed: " + await expanded.Content.ReadAsStringAsync());
@@ -253,6 +256,9 @@ internal sealed class LoopbackControl : IDisposable
         if (!pulse.IsSuccessStatusCode) throw new Exception("Control heartbeat failed.");
         using var rejected = await http.PostAsync(url + "/chain", new StringContent("{\"slots\":[{\"type\":\"nam_unknown\"}]}", Encoding.UTF8, "application/json"));
         if ((int)rejected.StatusCode != 422 || processor.ActiveEffectCount != 6) throw new Exception("Unsupported effect changed the active chain.");
+        using var invalidTrim = await http.PostAsync(url + "/chain", new StringContent("{\"slots\":[],\"inputTrimDb\":31}", Encoding.UTF8, "application/json"));
+        if ((int)invalidTrim.StatusCode != 422 || processor.ActiveEffectCount != 6 || Math.Abs(processor.InputScale - 1.995f) > .01f)
+            throw new Exception("Invalid input trim changed the active state.");
         using var untrusted = new HttpClient(new HttpClientHandler { UseProxy = false });
         untrusted.DefaultRequestHeaders.Add("Origin", "https://untrusted.example");
         using var blocked = await untrusted.PostAsync(url + "/chain", new StringContent(body, Encoding.UTF8, "application/json"));
