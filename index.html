@@ -79,7 +79,7 @@
           <label for="audio-file">기타 DI 녹음 파일</label><input id="audio-file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a"><p id="file-name" class="help">파일을 선택한 뒤 재생하세요. 파일은 서버로 전송되지 않습니다.</p>
           <div class="transport"><button id="play-file" type="button" disabled>▶ 재생</button><button id="stop-file" type="button" disabled>■ 정지</button><label><input id="loop-file" type="checkbox"> 반복</label></div>
         </div>
-        <div class="level-row input-level-row browser-routing"><label for="input-trim">입력 게인 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
+        <div class="level-row input-level-row"><label for="input-trim">입력 레벨 <output id="input-trim-value">+6 dB</output></label><input id="input-trim" type="range" min="-12" max="30" step="1" value="6"><p id="input-trim-help" class="gain-help">IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.</p></div>
         <div class="divider browser-routing"></div>
         <label for="output-device" class="browser-routing">출력 장치</label><div class="inline browser-routing"><select id="output-device"><option value="default">시스템 기본 출력</option></select><button id="choose-output" class="subtle" type="button">장치 선택</button></div>
         <div id="route-guide" class="route-guide browser-routing" role="status">인터페이스를 연결하면 입력·출력 장치 조합을 확인합니다.</div>
@@ -92,6 +92,6 @@
 
   </aside>
   <audio id="sink-audio" autoplay playsinline hidden></audio>
-  <script type="module" src="./app.js?v=asio-routing-1"></script>
+  <script type="module" src="./app.js?v=asio-input-1"></script>
 </body>
 </html>
