@@ -110,7 +110,7 @@ let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeO
 let isMuted = false, outputRoute = 'context';
 let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
 const NATIVE_URL = 'http://127.0.0.1:8765';
-let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000, nativeLegacy = false;
+let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000, nativeLegacy = false, nativeTrimSupported = false;
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
 const sinkAudio = $('sink-audio');
 
@@ -123,7 +123,13 @@ function showNativeRouting(connected) {
   document.body.classList.toggle('asio-active', connected);
   $('route-pill').textContent = connected ? 'ASIO AUDIO' : 'BROWSER AUDIO';
   $('asio-route').hidden = !connected;
-  for (const id of ['power', 'input-trim', 'request-input', 'choose-output', 'input-device', 'output-device'])
+  $('input-trim').disabled = connected && !nativeTrimSupported;
+  $('input-trim-help').textContent = connected
+    ? nativeTrimSupported
+      ? '이펙터 앞의 디지털 입력 레벨입니다. 인터페이스에서 이미 찌그러진 신호는 여기서 복구할 수 없습니다.'
+      : '현재 설치된 ASIO 엔진은 웹 입력 레벨을 지원하지 않습니다. 새 오디오 엔진 파일을 실행해 주세요.'
+    : 'IN 미터가 움직이도록 올리되 피크가 0 dBFS에 닿지 않게 조절하세요.';
+  for (const id of ['power', 'request-input', 'choose-output', 'input-device', 'output-device'])
     $(id).disabled = connected;
 }
 function nativeDisconnected(message) {
@@ -175,7 +181,8 @@ async function flushNative() {
       const unsupported = slots.filter(slot => slot.type && !slot.bypass && !nativeTypes.has(slot.type));
       const payload = { slots: slots.filter(slot => !slot.type || slot.bypass || nativeTypes.has(slot.type))
         .map(({ type, bypass, values }) => ({ type, bypass, values })),
-        level: +$('master-volume').value / 100, mute: isMuted, impulse: nativeImpulse() };
+        level: +$('master-volume').value / 100, inputTrimDb: +$('input-trim').value,
+        mute: isMuted, impulse: nativeImpulse() };
       const response = await fetch(`${NATIVE_URL}/chain`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), cache: 'no-store', targetAddressSpace: 'loopback'
@@ -200,6 +207,7 @@ async function connectNative({ quiet = false } = {}) {
     if (!response.ok) throw new Error(`응답 ${response.status}`);
     const capabilities = await response.json();
     nativeLegacy = !Array.isArray(capabilities.supported);
+    nativeTrimSupported = capabilities.inputTrim === true;
     nativeTypes = new Set(Array.isArray(capabilities.supported) ? capabilities.supported : ['janray', 'ocd']);
     nativeRate = Number.isFinite(capabilities.rate) ? capabilities.rate : 48000;
     const route = capabilities.route;
@@ -828,7 +836,7 @@ $('choose-output').onclick = async () => {
     $('output-device').value = device.deviceId; await routeOutput(device.deviceId);
   } catch (e) { if (e.name !== 'NotAllowedError') notify(`장치를 선택할 수 없습니다: ${e.message}`, true); }
 };
-$('input-trim').oninput = (e) => { const value = +e.target.value; $('input-trim-value').textContent = `${value >= 0 ? '+' : ''}${value} dB`; if (inputGain) inputGain.gain.setTargetAtTime(10 ** (value / 20), ctx.currentTime, .012); };
+$('input-trim').oninput = (e) => { const value = +e.target.value; $('input-trim-value').textContent = `${value >= 0 ? '+' : ''}${value} dB`; if (inputGain) inputGain.gain.setTargetAtTime(10 ** (value / 20), ctx.currentTime, .012); scheduleNativeSync(); };
 $('master-volume').oninput = (e) => { const value = +e.target.value; $('master-value').textContent = `${value}%`; if (master) master.gain.setTargetAtTime(value / 100, ctx.currentTime, .012); scheduleNativeSync(); };
 $('direct-monitor').onclick = () => {
   directMonitor = !directMonitor;
