@@ -7,6 +7,11 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Company>97's studio</Company>
+    <Product>Web Effecter Audio</Product>
+    <Title>Web Effecter Audio</Title>
+    <Description>Low-latency ASIO guitar effects companion</Description>
+    <Copyright>Copyright © 2026 97's studio</Copyright>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="3.1.0" />
