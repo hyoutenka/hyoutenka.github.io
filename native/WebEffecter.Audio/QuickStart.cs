@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Win32;
 using NAudio.Wave;
 
@@ -21,6 +22,7 @@ internal static class QuickStart
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WebEffecter", "Audio");
     private static readonly string LauncherPath = Path.Combine(DirectoryPath, "start.vbs");
     internal static readonly string LogPath = Path.Combine(DirectoryPath, "engine.log");
+    private static readonly string RoutePath = Path.Combine(DirectoryPath, "route.json");
 
     internal static int Install(string[] args)
     {
@@ -34,28 +36,59 @@ internal static class QuickStart
             var index = Array.IndexOf(args, key);
             return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
         }
-        var driver = SelectDriver(drivers, Get("--driver"));
+        AudioRoute? saved = null;
+        try
+        {
+            if (File.Exists(RoutePath))
+                saved = JsonSerializer.Deserialize<AudioRoute>(File.ReadAllText(RoutePath));
+        }
+        catch (Exception error) when (error is JsonException or IOException) { }
+        var driver = SelectDriver(drivers, Get("--driver") ?? saved?.Driver);
         if (!drivers.Contains(driver, StringComparer.OrdinalIgnoreCase))
-            throw new ArgumentException("The selected ASIO driver is not installed.");
+        {
+            driver = SelectDriver(drivers, Get("--driver"));
+            saved = null;
+        }
 
         int Choice(string name, int fallback) => int.TryParse(Get(name), CultureInfo.InvariantCulture, out var value) ? value : fallback;
+        var rate = Choice("--rate", saved?.Rate ?? 48000);
+        var buffer = Choice("--buffer", saved?.Buffer ?? 64);
         int input, left, right;
+        bool namedInstrument, scarlett4i4;
         using (var device = AsioDevice.Open(driver))
         {
             var caps = device.Capabilities;
             if (caps.NbInputChannels < 1 || caps.NbOutputChannels < 2)
                 throw new InvalidOperationException("The ASIO driver needs at least one input and two outputs.");
-            var scarlett4i4 = driver.Contains("Focusrite", StringComparison.OrdinalIgnoreCase)
+            scarlett4i4 = driver.Contains("Focusrite", StringComparison.OrdinalIgnoreCase)
                 && caps.NbInputChannels >= 2 && caps.NbOutputChannels >= 4;
-            input = Choice("--input", scarlett4i4 ? 1 : 0);
-            left = Choice("--left", scarlett4i4 ? 2 : 0);
-            right = Choice("--right", scarlett4i4 ? 3 : 1);
+            var labels = Enumerable.Range(0, caps.NbInputChannels)
+                .Select(i => caps.InputChannelInfos[i].name).ToArray();
+            var named = AudioRouteSetup.FindNamedInstrument(labels);
+            namedInstrument = named >= 0;
+            var same = saved is not null && driver.Equals(saved.Driver, StringComparison.OrdinalIgnoreCase);
+            input = Choice("--input", same ? saved!.Input : named >= 0 ? named : scarlett4i4 ? 1 : 0);
+            left = Choice("--left", same ? saved!.Left : scarlett4i4 ? 2 : 0);
+            right = Choice("--right", same ? saved!.Right : scarlett4i4 ? 3 : 1);
             if (input < 0 || input >= caps.NbInputChannels || left < 0 || right < 0 ||
                 left >= caps.NbOutputChannels || right >= caps.NbOutputChannels || left == right)
-                throw new ArgumentException("Input/output channel selection is outside the driver's range.");
+            {
+                if (Get("--input") is not null || Get("--left") is not null || Get("--right") is not null)
+                    throw new ArgumentException("Input/output channel selection is outside the driver's range.");
+                input = named >= 0 ? named : 0;
+                left = 0; right = 1;
+                saved = null;
+            }
         }
-        var rate = Choice("--rate", 48000);
-        var buffer = Choice("--buffer", 64);
+        var explicitRoute = Get("--input") is not null && Get("--left") is not null && Get("--right") is not null;
+        if (args.Contains("--configure") || !explicitRoute && saved is null && !scarlett4i4 &&
+            (!namedInstrument || drivers.Length > 1 && Get("--driver") is null))
+        {
+            var chosen = AudioRouteSetup.Choose(drivers, new AudioRoute(driver, input, left, right, rate, buffer));
+            if (chosen is null) return 0;
+            (driver, input, left, right, rate, buffer) =
+                (chosen.Driver, chosen.Input, chosen.Left, chosen.Right, chosen.Rate, chosen.Buffer);
+        }
         Console.WriteLine($"ASIO: {driver} · IN {input + 1} · OUT {left + 1}/{right + 1} · {rate} Hz · {buffer} samples");
 
         Directory.CreateDirectory(DirectoryPath);
@@ -115,6 +148,7 @@ internal static class QuickStart
                     Console.WriteLine("로컬 ASIO 엔진 응답 확인 완료.");
                     Console.WriteLine("설정 완료. 이제 https://hyoutenka.github.io/ 에 접속하면 ASIO가 자동 연결됩니다.");
                     Console.WriteLine("사이트가 이미 열려 있다면 새로고침하세요. 이 창은 닫아도 됩니다.");
+                    File.WriteAllText(RoutePath, JsonSerializer.Serialize(new AudioRoute(driver, input, left, right, rate, buffer)), new UTF8Encoding(false));
                     ShowNotice("로컬 ASIO 엔진 응답을 확인했습니다.\n이제 Web Effecter 페이지를 새로고침하세요.");
                     return 0;
                 }
