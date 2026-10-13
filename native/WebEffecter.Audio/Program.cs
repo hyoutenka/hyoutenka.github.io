@@ -108,7 +108,7 @@ internal static class Program
         : null;
     if (control is not null) Console.WriteLine($"Web chain control: http://127.0.0.1:{options.ControlPort}/ (local computer only)");
     device.Start();
-    using var timer = new Timer(_ =>
+    using var timer = new System.Threading.Timer(_ =>
     {
         var frames = Interlocked.Read(ref processor.Frames);
         var resyncs = Volatile.Read(ref processor.Resyncs);
