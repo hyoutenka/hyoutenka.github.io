@@ -81,11 +81,16 @@ internal static class QuickStart
             }
         }
         var explicitRoute = Get("--input") is not null && Get("--left") is not null && Get("--right") is not null;
-        if (args.Contains("--configure") || !explicitRoute && saved is null && !scarlett4i4 &&
+        if (args.Contains("--configure") || args.Length == 0 && saved is not null ||
+            !explicitRoute && saved is null && !scarlett4i4 &&
             (!namedInstrument || drivers.Length > 1 && Get("--driver") is null))
         {
             var chosen = AudioRouteSetup.Choose(drivers, new AudioRoute(driver, input, left, right, rate, buffer));
-            if (chosen is null) return 0;
+            if (chosen is null)
+            {
+                RestartInstalledEngine();
+                return 0;
+            }
             (driver, input, left, right, rate, buffer) =
                 (chosen.Driver, chosen.Input, chosen.Left, chosen.Right, chosen.Rate, chosen.Buffer);
         }
@@ -185,6 +190,16 @@ internal static class QuickStart
                 catch (InvalidOperationException) when (process.HasExited) { }
             }
         }
+    }
+
+    private static void RestartInstalledEngine()
+    {
+        if (!File.Exists(LauncherPath)) return;
+        var start = new ProcessStartInfo("wscript.exe") { UseShellExecute = false, CreateNoWindow = true };
+        start.ArgumentList.Add("//B");
+        start.ArgumentList.Add("//Nologo");
+        start.ArgumentList.Add(LauncherPath);
+        Process.Start(start)?.Dispose();
     }
 
     internal static int Uninstall()
