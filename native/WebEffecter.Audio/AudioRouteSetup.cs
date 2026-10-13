@@ -72,7 +72,7 @@ internal static class AudioRouteSetup
                 var names = Enumerable.Range(0, caps.NbInputChannels).Select(i => caps.InputChannelInfos[i].name).ToArray();
                 var named = FindNamedInstrument(names);
                 input.SelectedIndex = named >= 0 ? named : Math.Clamp(initial.Input, 0, Math.Max(0, input.Items.Count - 1));
-                var same = string.Equals((string)driver.SelectedItem, initial.Driver, StringComparison.OrdinalIgnoreCase);
+                var same = string.Equals((string?)driver.SelectedItem, initial.Driver, StringComparison.OrdinalIgnoreCase);
                 left.SelectedIndex = same && initial.Left < left.Items.Count ? initial.Left : 0;
                 right.SelectedIndex = same && initial.Right < right.Items.Count ? initial.Right : Math.Min(1, right.Items.Count - 1);
                 if (named >= 0) info.Text = $"INST 이름을 찾았습니다: 입력 {named + 1}. 실제 잭 연결을 확인하세요.";
