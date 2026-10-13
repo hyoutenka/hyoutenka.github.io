@@ -5,10 +5,14 @@ on:
     paths:
       - 'native/**'
       - '.github/workflows/native-audio.yml'
+  pull_request:
+    paths:
+      - 'native/**'
+      - '.github/workflows/native-audio.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -30,11 +34,22 @@ jobs:
         with:
           name: web-effecter-audio-win-x64
           path: native/dist/WebEffecter.Audio.exe
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-effecter-audio-win-x64
+          path: native/dist
       - name: Publish one-click audio download
-        if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release view audio-latest 2>$null
           if ($LASTEXITCODE -ne 0) {
