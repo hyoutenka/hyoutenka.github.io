@@ -23,10 +23,11 @@ internal static class Program
     }
     if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
         throw new InvalidOperationException("ASIO requires an STA entry thread; this build was started without STA.");
-    Console.WriteLine("WebEffecter.Audio · STA build 8 (ASIO input trim)");
+    Console.WriteLine("WebEffecter.Audio · STA build 9 (ASIO input discovery)");
     if (args.Contains("--self-test"))
     {
         QuickStart.VerifyDriverSelection();
+        AudioRouteSetup.SelfTest();
         return LoopbackControl.SelfTestAsync().GetAwaiter().GetResult();
     }
     if (args.Length == 0 || args.Contains("--install"))
@@ -107,7 +108,7 @@ internal static class Program
         : null;
     if (control is not null) Console.WriteLine($"Web chain control: http://127.0.0.1:{options.ControlPort}/ (local computer only)");
     device.Start();
-    using var timer = new Timer(_ =>
+    using var timer = new System.Threading.Timer(_ =>
     {
         var frames = Interlocked.Read(ref processor.Frames);
         var resyncs = Volatile.Read(ref processor.Resyncs);
