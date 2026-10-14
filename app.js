@@ -109,6 +109,9 @@ let availableDevices = [], matchedOutput = null;
 let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
 let isMuted = false, outputRoute = 'context';
 let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
+const AUDIO_MODE_KEY = 'web-effecter-audio-mode';
+let preferredAudioMode = localStorage.getItem(AUDIO_MODE_KEY) === 'asio' ? 'asio' : 'browser';
+let rateComparison = '';
 const NATIVE_URL = 'http://127.0.0.1:8765';
 let nativeTypes = new Set(['janray', 'ocd']), nativeRate = 48000, nativeLegacy = false, nativeTrimSupported = false;
 let namEnginePromise; const namModelPromises = new Map(), namMessages = new WeakMap();
@@ -122,6 +125,8 @@ function nativeStatus(message, error = false) {
 function showNativeRouting(connected) {
   document.body.classList.toggle('asio-active', connected);
   $('route-pill').textContent = connected ? 'ASIO AUDIO' : 'BROWSER AUDIO';
+  $('browser-mode').setAttribute('aria-pressed', String(!connected));
+  $('native-connect').setAttribute('aria-pressed', String(connected));
   $('asio-route').hidden = !connected;
   $('input-trim').disabled = connected && !nativeTrimSupported;
   $('input-trim-help').textContent = connected
@@ -142,6 +147,33 @@ function nativeDisconnected(message) {
   $('engine-state').classList.toggle('on', ctx?.state === 'running');
   nativeStatus(message, true);
 }
+async function useBrowserAudio() {
+  preferredAudioMode = 'browser';
+  localStorage.setItem(AUDIO_MODE_KEY, 'browser');
+  clearTimeout(nativeTimer);
+  clearInterval(nativeHeartbeat);
+  const wasConnected = nativeConnected;
+  nativeConnected = false;
+  if (wasConnected) {
+    try {
+      await fetch(`${NATIVE_URL}/chain`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots: [], level: 0, mute: true, inputTrimDb: 0 }),
+        cache: 'no-store', targetAddressSpace: 'loopback', signal: AbortSignal.timeout(1200)
+      });
+    } catch {}
+  }
+  showNativeRouting(false);
+  $('native-connect').disabled = false;
+  $('native-connect').textContent = 'ASIO 연결';
+  $('native-status').classList.remove('error');
+  $('native-status').textContent = '브라우저 연습 모드입니다. 설치 없이 입력 장치를 연결해 사용할 수 있습니다.';
+  $('signal-status').textContent = '브라우저 오디오 · 입력 연결 대기';
+  $('engine-state').textContent = ctx?.state === 'running' ? 'ENGINE ON' : 'ENGINE OFF';
+  $('engine-state').classList.toggle('on', ctx?.state === 'running');
+  if (wasConnected && await ensureEngine()) await connectInput();
+}
+$('browser-mode').onclick = () => void useBrowserAudio();
 function scheduleNativeSync() {
   if (!nativeConnected) return;
   nativeRevision++;
@@ -200,12 +232,15 @@ async function flushNative() {
   } finally { nativeBusy = false; }
 }
 async function connectNative({ quiet = false } = {}) {
+  preferredAudioMode = 'asio';
+  localStorage.setItem(AUDIO_MODE_KEY, 'asio');
   $('native-connect').disabled = true;
   nativeStatus('로컬 ASIO 엔진에 연결하는 중…');
   try {
     const response = await fetch(`${NATIVE_URL}/status`, { cache: 'no-store', targetAddressSpace: 'loopback' });
     if (!response.ok) throw new Error(`응답 ${response.status}`);
     const capabilities = await response.json();
+    if (preferredAudioMode !== 'asio') return;
     nativeLegacy = !Array.isArray(capabilities.supported);
     nativeTrimSupported = capabilities.inputTrim === true;
     nativeTypes = new Set(Array.isArray(capabilities.supported) ? capabilities.supported : ['janray', 'ocd']);
@@ -238,7 +273,7 @@ async function connectNative({ quiet = false } = {}) {
         });
         if (!pulse.ok) throw new Error(`응답 ${pulse.status}`);
       } catch (error) {
-        nativeDisconnected(`ASIO 연결 끊김: ${error.message}`);
+        if (nativeConnected) nativeDisconnected(`ASIO 연결 끊김: ${error.message}`);
       }
     }, 2000);
   } catch (error) {
@@ -339,7 +374,7 @@ function refreshLatencyInfo() {
   if (Number.isFinite(ctx.baseLatency)) parts.push(`엔진 ${Math.round(ctx.baseLatency * 1000)}ms`);
   if (Number.isFinite(ctx.outputLatency)) parts.push(`출력 ${Math.round(ctx.outputLatency * 1000)}ms`);
   const route = outputRoute === 'media' ? ' · 미디어 경유 출력(추가 지연 가능)' : ' · 직접 출력';
-  $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'}${route} · 실제 연주 지연은 장치에 따라 다릅니다.`;
+  $('latency-status').textContent = `브라우저 지연 추정 · ${parts.length ? parts.join(' · ') : '측정값 없음'} · ${(ctx.sampleRate / 1000).toFixed(1)}kHz${route}${rateComparison ? ` · ${rateComparison}` : ''} · 실제 연주 지연은 장치에 따라 다릅니다.`;
   updateRouteGuide();
 }
 function markCustom() { $('preset').value = 'custom'; }
@@ -743,10 +778,86 @@ function rebuild() {
     ? $('native-status').classList.contains('error') ? 'ASIO 연결 실패 · 입출력 서랍 확인' : $('native-status').textContent
     : units.length ? `${units.length}개 이펙트 연결` : '드라이 신호';
 }
+async function probeOutputLatency(context) {
+  const oscillator = context.createOscillator(), silence = context.createGain();
+  silence.gain.value = 0;
+  oscillator.connect(silence).connect(context.destination);
+  oscillator.start();
+  try {
+    await context.resume();
+    await new Promise(resolve => setTimeout(resolve, 140));
+    const output = context.outputLatency;
+    return Number.isFinite(output) && output > 0
+      ? { output, total: output + (Number.isFinite(context.baseLatency) ? context.baseLatency : 0) }
+      : null;
+  } finally {
+    oscillator.stop();
+    oscillator.disconnect();
+    silence.disconnect();
+  }
+}
+async function createBrowserContext() {
+  const options = { latencyHint: 'interactive' };
+  if (activeOutput !== 'default' && typeof AudioContext.prototype.setSinkId === 'function')
+    options.sinkId = activeOutput;
+  let natural;
+  try { natural = new AudioContext(options); }
+  catch (error) {
+    if (!options.sinkId) throw error;
+    activeOutput = 'default';
+    $('output-device').value = 'default';
+    delete options.sinkId;
+    natural = new AudioContext(options);
+  }
+  // Ask for the browser's minimum latency and compare the original 48 kHz
+  // setting when the endpoint's preferred rate differs. Only keep a candidate
+  // if the driver's own estimate shows a meaningful improvement.
+  const candidates = [{ label: '짧은 버퍼 요청', options: { ...options, latencyHint: .001 } }];
+  if (natural.sampleRate !== 48000)
+    candidates.push({ label: '48kHz', options: { ...options, latencyHint: .001, sampleRate: 48000 } });
+  let winner = natural, best = Infinity;
+  const readings = [];
+  try {
+    const baseline = await probeOutputLatency(natural);
+    best = baseline?.total ?? Infinity;
+    readings.push(`기본 ${baseline ? Math.round(baseline.output * 1000) + 'ms' : '측정 불가'}`);
+    await natural.suspend();
+    for (const candidate of candidates) {
+      let trial;
+      try {
+        trial = new AudioContext(candidate.options);
+        const result = await probeOutputLatency(trial);
+        readings.push(`${candidate.label} ${result ? Math.round(result.output * 1000) + 'ms' : '측정 불가'}`);
+        if (result && result.total + .002 < best) {
+          await trial.suspend();
+          if (winner !== natural) await winner.close();
+          winner = trial;
+          best = result.total;
+        } else await trial.close();
+      } catch {
+        readings.push(`${candidate.label} 사용 불가`);
+        if (trial && trial.state !== 'closed') await trial.close().catch(() => {});
+      }
+    }
+    if (winner !== natural) await natural.close();
+    await winner.resume();
+    rateComparison = `출력 비교 ${readings.join(' / ')}`;
+    return winner;
+  } catch (error) {
+    if (winner !== natural && winner.state !== 'closed') await winner.close().catch(() => {});
+    if (natural.state !== 'closed') {
+      rateComparison = '샘플레이트 비교 불가 · 장치 기본 사용';
+      if (natural.state !== 'running') await natural.resume().catch(() => {});
+      return natural;
+    }
+    throw error;
+  }
+}
 async function startEngine() {
   if (ctx) { if (ctx.state !== 'running') await ctx.resume(); return; }
   if (!window.AudioContext) throw new Error('이 브라우저는 Web Audio를 지원하지 않습니다.');
-  ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+  $('engine-state').textContent = '출력 경로 확인 중';
+  ctx = await createBrowserContext();
   try {
     await ctx.audioWorklet.addModule(new URL('./pitch-worklet.js?v=fast-attack-1', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./jan-ray-worklet.js', import.meta.url));
@@ -769,7 +880,7 @@ async function startEngine() {
     meterLoop(); notify('오디오 엔진이 켜졌습니다. 입력 장치를 연결하거나 녹음 파일을 선택하세요.');
   } catch (error) { await ctx.close(); ctx = null; throw error; }
 }
-async function ensureEngine() { try { await startEngine(); return true; } catch (e) { notify(`오디오를 시작할 수 없습니다: ${e.message}`, true); return false; } }
+async function ensureEngine() { try { await startEngine(); return true; } catch (e) { $('engine-state').textContent = 'ENGINE OFF'; notify(`오디오를 시작할 수 없습니다: ${e.message}`, true); return false; } }
 $('power').onclick = ensureEngine;
 
 function disconnectLive() { if (liveSource) { liveSource.disconnect(); liveSource = null; } if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } refreshLatencyInfo(); }
@@ -783,6 +894,7 @@ async function refreshDevices() {
   if (currentInput && [...$('input-device').options].some(o => o.value === currentInput)) $('input-device').value = currentInput;
   $('output-device').replaceChildren(new Option('시스템 기본 출력', 'default'), ...devices.filter(d => d.kind === 'audiooutput' && d.deviceId !== 'default').map((d, i) => new Option(d.label || `출력 ${i + 1}`, d.deviceId)));
   if ([...$('output-device').options].some(o => o.value === currentOutput)) $('output-device').value = currentOutput;
+  else if ([...$('output-device').options].some(o => o.value === activeOutput)) $('output-device').value = activeOutput;
   updateRouteGuide();
 }
 async function connectInput() {
@@ -802,6 +914,13 @@ $('request-input').onclick = connectInput;
 $('input-device').onchange = () => { if (stream) connectInput(); };
 navigator.mediaDevices?.addEventListener?.('devicechange', () => refreshDevices().catch(() => {}));
 async function routeOutput(id) {
+  if (!ctx) {
+    activeOutput = id;
+    rateComparison = '';
+    updateRouteGuide();
+    notify('출력 장치를 선택했습니다. 오디오를 시작할 때 해당 장치의 지연과 샘플레이트를 확인합니다.');
+    return;
+  }
   if (!await ensureEngine()) return;
   try {
     if (typeof ctx.setSinkId === 'function') {
@@ -816,7 +935,7 @@ async function routeOutput(id) {
       await sinkAudio.setSinkId(id); sinkAudio.srcObject = mediaDest.stream; await sinkAudio.play();
       outputBus.disconnect(); outputBus.connect(mediaDest); outputRoute = 'media';
     }
-    activeOutput = id; refreshLatencyInfo();
+    activeOutput = id; rateComparison = '출력 장치 변경됨 · 새 세션에서 샘플레이트 재비교'; refreshLatencyInfo();
     notify(outputRoute === 'media'
       ? '선택한 출력은 미디어 스트림을 경유하여 지연이 커질 수 있습니다. 시스템 기본 출력으로 바꾸면 직접 경로를 사용합니다.'
       : id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 직접 연결했습니다.');
@@ -1106,6 +1225,8 @@ $('metro-tap').onclick = () => {
 };
 renderBeats();
 render();
-// The installed companion starts with Windows; visiting the practice page
-// automatically connects control. Guitar samples never pass through fetch.
-setTimeout(() => void connectNative({ quiet: true }), 500);
+// The website starts in browser mode. ASIO only connects when explicitly
+// selected, or when a previous ASIO preference was saved on this computer.
+if (preferredAudioMode === 'asio') setTimeout(() => void connectNative({ quiet: true }), 500);
+else $('native-status').textContent = '브라우저 연습 모드입니다. 설치 없이 입력 장치를 연결해 사용할 수 있습니다.';
+void refreshDevices().catch(() => {});
