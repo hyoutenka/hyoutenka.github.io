@@ -106,7 +106,8 @@ let selected = 0, pickerOpen = true, activeCategory = 'compressor', mode = 'devi
 let ctx, sourceBus, inputGain, inputAnalyser, outputAnalyser, master, limiter, muteGain, outputBus, mediaDest, stream, liveSource, fileBuffer, fileSource;
 let directMonitorGain, chainMonitorGain, directMonitor = false;
 let availableDevices = [], matchedOutput = null;
-let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = 'default', animationId;
+const OUTPUT_DEVICE_KEY = 'web-effecter-output-device';
+let units = [], chainGain = null, irBuffer = null, irSelection = 'body', activeOutput = localStorage.getItem(OUTPUT_DEVICE_KEY) || 'default', animationId;
 let isMuted = false, outputRoute = 'context';
 let nativeConnected = false, nativeRevision = 0, nativeApplied = 0, nativeBusy = false, nativeTimer, nativeHeartbeat;
 const AUDIO_MODE_KEY = 'web-effecter-audio-mode';
@@ -805,6 +806,7 @@ async function createBrowserContext() {
   catch (error) {
     if (!options.sinkId) throw error;
     activeOutput = 'default';
+    localStorage.setItem(OUTPUT_DEVICE_KEY, 'default');
     $('output-device').value = 'default';
     delete options.sinkId;
     natural = new AudioContext(options);
@@ -893,8 +895,8 @@ async function refreshDevices() {
   $('input-device').replaceChildren(...devices.filter(d => d.kind === 'audioinput').map((d, i) => new Option(d.label || `입력 ${i + 1}`, d.deviceId)));
   if (currentInput && [...$('input-device').options].some(o => o.value === currentInput)) $('input-device').value = currentInput;
   $('output-device').replaceChildren(new Option('시스템 기본 출력', 'default'), ...devices.filter(d => d.kind === 'audiooutput' && d.deviceId !== 'default').map((d, i) => new Option(d.label || `출력 ${i + 1}`, d.deviceId)));
-  if ([...$('output-device').options].some(o => o.value === currentOutput)) $('output-device').value = currentOutput;
-  else if ([...$('output-device').options].some(o => o.value === activeOutput)) $('output-device').value = activeOutput;
+  if ([...$('output-device').options].some(o => o.value === activeOutput)) $('output-device').value = activeOutput;
+  else if ([...$('output-device').options].some(o => o.value === currentOutput)) $('output-device').value = currentOutput;
   updateRouteGuide();
 }
 async function connectInput() {
@@ -916,6 +918,7 @@ navigator.mediaDevices?.addEventListener?.('devicechange', () => refreshDevices(
 async function routeOutput(id) {
   if (!ctx) {
     activeOutput = id;
+    localStorage.setItem(OUTPUT_DEVICE_KEY, id);
     rateComparison = '';
     updateRouteGuide();
     notify('출력 장치를 선택했습니다. 오디오를 시작할 때 해당 장치의 지연과 샘플레이트를 확인합니다.');
@@ -935,7 +938,8 @@ async function routeOutput(id) {
       await sinkAudio.setSinkId(id); sinkAudio.srcObject = mediaDest.stream; await sinkAudio.play();
       outputBus.disconnect(); outputBus.connect(mediaDest); outputRoute = 'media';
     }
-    activeOutput = id; rateComparison = '출력 장치 변경됨 · 새 세션에서 샘플레이트 재비교'; refreshLatencyInfo();
+    activeOutput = id; localStorage.setItem(OUTPUT_DEVICE_KEY, id);
+    rateComparison = '출력 장치 변경됨 · 새 세션에서 샘플레이트 재비교'; refreshLatencyInfo();
     notify(outputRoute === 'media'
       ? '선택한 출력은 미디어 스트림을 경유하여 지연이 커질 수 있습니다. 시스템 기본 출력으로 바꾸면 직접 경로를 사용합니다.'
       : id === 'default' ? '시스템 기본 출력으로 연결했습니다.' : '선택한 출력 장치로 직접 연결했습니다.');
