@@ -866,14 +866,21 @@ async function startEngine() {
     await ctx.audioWorklet.addModule(new URL('./ocd-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./cp10-worklet.js', import.meta.url));
     await ctx.audioWorklet.addModule(new URL('./catalog-pitch-worklet.js?v=latency-1', import.meta.url));
-    sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createDynamicsCompressor(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
+    sourceBus = ctx.createGain(); inputGain = ctx.createGain(); inputAnalyser = ctx.createAnalyser(); outputAnalyser = ctx.createAnalyser(); master = ctx.createGain(); limiter = ctx.createWaveShaper(); muteGain = ctx.createGain(); outputBus = ctx.createGain();
     directMonitorGain = ctx.createGain(); chainMonitorGain = ctx.createGain();
     directMonitorGain.gain.value = directMonitor ? 1 : 0;
     chainMonitorGain.gain.value = directMonitor ? 0 : 1;
     inputAnalyser.fftSize = outputAnalyser.fftSize = 1024;
     inputGain.gain.value = 10 ** (+$('input-trim').value / 20);
     master.gain.value = +$('master-volume').value / 100; muteGain.gain.value = isMuted ? 0 : 1;
-    limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .002; limiter.release.value = .08;
+    // Keep the output linear below -3 dBFS, then limit peaks without the
+    // look-ahead buffer used by DynamicsCompressorNode.
+    const safetyCurve = new Float32Array(8193);
+    for (let i = 0; i < safetyCurve.length; i++) {
+      const x = i * 2 / (safetyCurve.length - 1) - 1, magnitude = Math.abs(x);
+      safetyCurve[i] = Math.sign(x) * (magnitude <= .71 ? magnitude : .71 + .24 * Math.tanh((magnitude - .71) / .24));
+    }
+    limiter.curve = safetyCurve;
     sourceBus.connect(inputGain).connect(inputAnalyser);
     inputAnalyser.connect(directMonitorGain).connect(master);
     master.connect(limiter).connect(muteGain).connect(outputAnalyser).connect(outputBus); outputBus.connect(ctx.destination);
@@ -904,7 +911,7 @@ async function connectInput() {
   if (!navigator.mediaDevices?.getUserMedia) { notify('입력 장치 연결에는 HTTPS 또는 localhost가 필요합니다.', true); return; }
   const id = $('input-device').value;
   try {
-    const nextStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: { ideal: 0.01 }, channelCount: { ideal: 1 }, sampleRate: { ideal: ctx.sampleRate } }, video: false });
+    const nextStream = await navigator.mediaDevices.getUserMedia({ audio: { ...(id ? { deviceId: { exact: id } } : {}), echoCancellation: false, noiseSuppression: false, autoGainControl: false, latency: { ideal: 0.001 }, channelCount: { ideal: 1 }, sampleRate: { ideal: ctx.sampleRate } }, video: false });
     disconnectLive(); stopFile(); stream = nextStream; liveSource = ctx.createMediaStreamSource(stream);
     if (mode === 'device') liveSource.connect(sourceBus);
     await refreshDevices(); const settingsId = stream.getAudioTracks()[0].getSettings().deviceId;
